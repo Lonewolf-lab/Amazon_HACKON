@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: "ReLoop — AI-Powered Returns & Sustainable Resale",
+  title: "ReLoop — Every return finds its next owner",
   description:
-    "Smart quality grading, green credits, and predictive return prevention for a circular retail loop.",
+    "AI-powered returns intelligence: keep-rate prediction, smart grading, circular routing, and Green Credits.",
 };
 
 export default function RootLayout({
@@ -18,9 +15,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body
+        style={{
+          fontFamily:
+            '"Amazon Ember", system-ui, -apple-system, Arial, sans-serif',
+        }}
+        className="bg-[#F3F3F3] text-[#0F1111] antialiased"
+      >
         <Navbar />
-        <main className="min-h-screen bg-muted/30">{children}</main>
+        <main className="min-h-screen bg-[#F3F3F3]">{children}</main>
       </body>
     </html>
   );

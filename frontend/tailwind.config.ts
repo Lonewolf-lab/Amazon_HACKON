@@ -17,6 +17,20 @@ const config: Config = {
     },
     extend: {
       colors: {
+        amazon: {
+          orange: "#FF9900",
+          "orange-btn": "#FFA41C",
+          navy: "#131921",
+          "navy-2": "#232F3E",
+          bg: "#F3F3F3",
+          border: "#D5D9D9",
+          ink: "#0F1111",
+          muted: "#565959",
+          link: "#007185",
+          green: "#067D62",
+          red: "#CC0C39",
+          yellow: "#F0C14B",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -1,93 +1,234 @@
 "use client";
 
-import { useState } from "react";
-import { Leaf, Loader2, Gift, TreePine } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { issueCredits, type CreditsResult } from "@/lib/api";
+import { useEffect, useState } from "react";
+import {
+  Coins,
+  Leaf,
+  Package,
+  IndianRupee,
+  Gift,
+  TreePine,
+  Heart,
+  ChevronRight,
+  CheckCircle2,
+} from "lucide-react";
+import { issueCredits } from "@/lib/api";
+
+const CO2_PER_CREDIT = 0.016;
+
+const HISTORY = [
+  { id: "RET001", product: "boAt Rockerz 450", grade: "B", credits: 50, date: "Jun 13, 2026" },
+  { id: "RET002", product: "Levi's 511 Jeans", grade: "A", credits: 50, date: "Jun 10, 2026" },
+  { id: "RET003", product: "Philips Mixer", grade: "C", credits: 20, date: "Jun 8, 2026" },
+  { id: "RET004", product: "Atomic Habits", grade: "A", credits: 50, date: "Jun 5, 2026" },
+  { id: "RET005", product: "Puma Running Shoes", grade: "B", credits: 35, date: "Jun 1, 2026" },
+];
+
+const REDEEM = [
+  { emoji: "🎁", title: "₹50 Amazon Voucher", cost: 100 },
+  { emoji: "🌱", title: "Plant a Tree", cost: 50 },
+  { emoji: "❤️", title: "Donate to CRY", cost: 25 },
+];
 
 export default function CreditsPage() {
-  const [balance, setBalance] = useState<number>(100);
-  const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [balance, setBalance] = useState<number>(497);
+  const [live, setLive] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
-  async function handleIssue() {
-    setLoading(true);
-    try {
-      const res: CreditsResult = await issueCredits({ user_id: "demo-user" });
-      setBalance(res.new_balance);
-      setMessage(res.message);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    // amount: 0 → reads back the real balance without changing it.
+    issueCredits({ user_id: "USER001", amount: 0, return_id: "DEMO001" })
+      .then((res) => {
+        setBalance(res.new_balance);
+        setLive(true);
+      })
+      .catch(() => setLive(false));
+  }, []);
+
+  function redeem(title: string) {
+    setToast(`Redeemed: ${title}`);
+    setTimeout(() => setToast(null), 2500);
   }
 
+  const co2 = (balance * CO2_PER_CREDIT).toFixed(2);
+  const tier =
+    balance > 500 ? "Gold" : balance > 200 ? "Silver" : "Bronze";
+  const toGold = Math.max(0, 501 - balance);
+  const tierPct = Math.min(100, (balance / 501) * 100);
+
+  const stats = [
+    { label: "Total Credits", value: balance.toLocaleString("en-IN"), icon: Coins, tint: "#FF9900" },
+    { label: "CO₂ Saved", value: `${co2} kg`, icon: Leaf, tint: "#067D62" },
+    { label: "Items Returned", value: "12 returns", icon: Package, tint: "#007185" },
+    { label: "Credits Value", value: `₹${Math.round(balance / 2)}`, icon: IndianRupee, tint: "#FF9900" },
+  ];
+
   return (
-    <div className="container max-w-3xl py-10">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold">Green Credits</h1>
-        <p className="text-muted-foreground">
-          Earn rewards every time you return responsibly and keep items in the
-          loop.
-        </p>
+    <div className="mx-auto max-w-[1400px] px-4 py-5">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed right-4 top-24 z-50 flex items-center gap-2 rounded-md bg-[#067D62] px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+          <CheckCircle2 className="h-4 w-4" />
+          {toast}
+        </div>
+      )}
+
+      {/* Breadcrumb */}
+      <nav className="mb-2 flex items-center gap-1 text-xs text-[#565959]">
+        <span className="text-[#007185]">Your Account</span>
+        <ChevronRight className="h-3 w-3" />
+        <span>Green Credits</span>
+      </nav>
+
+      <div className="mb-5 flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-medium text-[#0F1111]">
+            Green Credits Dashboard
+          </h1>
+          <p className="text-sm text-[#565959]">Account: USER001</p>
+        </div>
+        <span
+          className={`rounded-sm px-2 py-1 text-xs font-medium ${
+            live
+              ? "bg-[#F0FAF7] text-[#067D62]"
+              : "bg-[#FEF8E7] text-[#565959]"
+          }`}
+        >
+          {live ? "● Live balance" : "○ Cached balance"}
+        </span>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-primary to-green-700 p-8 text-center text-primary-foreground">
-          <Leaf className="mx-auto mb-3 h-10 w-10" />
-          <p className="text-sm uppercase tracking-wide opacity-90">
-            Current balance
-          </p>
-          <p className="text-5xl font-bold">{balance}</p>
-          <p className="text-sm opacity-90">Green Credits</p>
-        </div>
-        <CardContent className="space-y-4 p-6">
-          {message && (
-            <div className="rounded-lg bg-primary/10 p-4 text-sm text-primary">
-              {message}
+      {/* Stat cards */}
+      <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3 rounded-md border border-[#D5D9D9] bg-white p-4"
+          >
+            <div
+              className="rounded-md p-2.5"
+              style={{ backgroundColor: `${s.tint}1A` }}
+            >
+              <s.icon className="h-6 w-6" style={{ color: s.tint }} />
             </div>
-          )}
-          <Button className="w-full" onClick={handleIssue} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Issuing…
-              </>
-            ) : (
-              <>
-                <Gift className="mr-2 h-4 w-4" />
-                Issue Credits for a Return
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+            <div>
+              <p className="text-xl font-bold text-[#0F1111]">{s.value}</p>
+              <p className="text-xs text-[#565959]">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-3 pb-2">
-            <TreePine className="h-6 w-6 text-primary" />
-            <CardTitle className="text-base">CO₂ Saved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">12.4 kg</p>
-            <p className="text-sm text-muted-foreground">
-              Lifetime carbon avoided through resale &amp; reuse.
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
+        {/* Hero balance */}
+        <div className="flex flex-col items-center rounded-md border border-[#D5D9D9] bg-white p-6 text-center">
+          <div className="flex h-40 w-40 flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#FF9900] to-[#F0820A] text-white shadow-inner">
+            <span className="text-4xl font-bold">{balance}</span>
+            <span className="text-xs opacity-90">credits</span>
+          </div>
+          <p className="mt-3 font-bold text-[#0F1111]">ReLoop Green Credits</p>
+
+          <div className="mt-4 w-full">
+            <div className="mb-1 flex justify-between text-xs text-[#565959]">
+              <span className="font-medium text-[#0F1111]">
+                {tier} Member
+              </span>
+              <span>
+                {tier === "Gold" ? "Top tier" : `${toGold} to Gold`}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[#E7E9EC]">
+              <div
+                className="h-full bg-[#FF9900]"
+                style={{ width: `${tierPct}%` }}
+              />
+            </div>
+            <p className="mt-1 text-[10px] text-[#979aa0]">
+              Bronze 0–200 • Silver 201–500 • Gold 501+
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-3 pb-2">
-            <Gift className="h-6 w-6 text-primary" />
-            <CardTitle className="text-base">Redeem</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Use credits for discounts on certified refurbished items and
-              peer-to-peer resale listings.
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* History table */}
+        <div className="rounded-md border border-[#D5D9D9] bg-white">
+          <div className="border-b border-[#D5D9D9] px-4 py-2.5">
+            <h2 className="text-base font-bold text-[#0F1111]">
+              Returns History
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#D5D9D9] bg-[#F7F8F8] text-left text-xs uppercase text-[#565959]">
+                  <th className="px-4 py-2 font-medium">Return ID</th>
+                  <th className="px-4 py-2 font-medium">Product</th>
+                  <th className="px-4 py-2 font-medium">Grade</th>
+                  <th className="px-4 py-2 font-medium">Credits</th>
+                  <th className="px-4 py-2 font-medium">Date</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {HISTORY.map((h) => (
+                  <tr key={h.id} className="border-b border-[#EAEDED] last:border-0">
+                    <td className="px-4 py-2.5 text-[#007185]">{h.id}</td>
+                    <td className="px-4 py-2.5 text-[#0F1111]">{h.product}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="rounded-sm border border-[#D5D9D9] px-1.5 py-0.5 text-xs font-bold">
+                        {h.grade}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 font-bold text-[#067D62]">
+                      +{h.credits}
+                    </td>
+                    <td className="px-4 py-2.5 text-[#565959]">{h.date}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="flex items-center gap-1 text-xs text-[#067D62]">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Credited
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Redeem */}
+      <h2 className="mb-3 mt-6 text-lg font-bold text-[#0F1111]">
+        Redeem Your Credits
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {REDEEM.map((r) => {
+          const Icon =
+            r.title.includes("Tree")
+              ? TreePine
+              : r.title.includes("CRY")
+              ? Heart
+              : Gift;
+          const affordable = balance >= r.cost;
+          return (
+            <div
+              key={r.title}
+              className="flex flex-col rounded-md border border-[#D5D9D9] bg-white p-4"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <Icon className="h-6 w-6 text-[#FF9900]" />
+                <span className="text-2xl">{r.emoji}</span>
+              </div>
+              <p className="font-bold text-[#0F1111]">{r.title}</p>
+              <p className="mb-3 text-sm text-[#565959]">{r.cost} credits</p>
+              <button
+                onClick={() => redeem(r.title)}
+                disabled={!affordable}
+                className="mt-auto w-full rounded-full border border-[#FF8F00] bg-[#FFA41C] py-2 text-sm font-medium text-[#0F1111] hover:bg-[#FA8900] disabled:cursor-not-allowed disabled:border-[#D5D9D9] disabled:bg-[#E7E9EC] disabled:text-[#979aa0]"
+              >
+                {affordable ? "Redeem" : "Not enough credits"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
