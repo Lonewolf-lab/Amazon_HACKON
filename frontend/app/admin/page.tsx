@@ -573,10 +573,13 @@ function DecisionModal({
           <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-[200px_1fr]">
             {/* Photo */}
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-md border border-[#D5D9D9] bg-[#F7F8F8]">
-              {rec.image_base64 ? (
+              {rec.image_url || rec.image_base64 ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={`data:image/${rec.image_format || "jpeg"};base64,${rec.image_base64}`}
+                  src={
+                    rec.image_url ??
+                    `data:image/${rec.image_format || "jpeg"};base64,${rec.image_base64}`
+                  }
                   alt="Returned product"
                   className="h-full w-full object-contain"
                 />

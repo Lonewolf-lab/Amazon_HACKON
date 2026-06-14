@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { getPublishedListings } from "@/lib/published";
+import { getMarketplace } from "@/lib/api";
 
 /* Listings simulated from the seeded product catalog (real product names),
    priced as a % of original by grade. In production this is a returns×products
@@ -81,8 +82,12 @@ export default function MarketplacePage() {
   // Items the user just sent through the ReLife Journey (from localStorage).
   const [published, setPublished] = useState<Display[]>([]);
   useEffect(() => {
-    setPublished(
-      getPublishedListings().map((p) => ({
+    let active = true;
+    (async () => {
+      // localStorage = instant optimistic copy (this browser, just-listed)
+      const localList = getPublishedListings();
+      const localIds = new Set(localList.map((p) => p.id));
+      const local: Display[] = localList.map((p) => ({
         id: p.id,
         name: p.name,
         category: p.category,
@@ -92,17 +97,49 @@ export default function MarketplacePage() {
         score: p.condition_score,
         disposition: p.disposition,
         justListed: true,
-      }))
-    );
+      }));
+
+      // backend = cross-device source of truth (DynamoDB journey records)
+      let backend: Display[] = [];
+      try {
+        backend = (await getMarketplace()).map((m) => ({
+          id: m.id,
+          name: m.name,
+          category: m.category as Listing["category"],
+          grade: m.grade as Grade,
+          original: m.original,
+          price: m.price,
+          score: m.condition_score,
+          disposition: m.disposition,
+          justListed: localIds.has(m.id),
+        }));
+      } catch {
+        backend = [];
+      }
+
+      // merge + dedup by id (backend wins; keep local-only items not yet scanned)
+      const byId = new Map<string, Display>();
+      backend.forEach((d) => byId.set(d.id, d));
+      local.forEach((d) => {
+        if (!byId.has(d.id)) byId.set(d.id, d);
+      });
+      if (active) setPublished(Array.from(byId.values()));
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
+  // Offline fallback only — used if the backend returns nothing.
   const fromStatic: Display[] = LISTINGS.map((l) => ({
     ...l,
     price: Math.round((l.original * RESALE_PCT[l.grade]) / 100),
     score: SCORE[l.grade],
   }));
 
-  const all: Display[] = [...published, ...fromStatic];
+  // Backend (DynamoDB: 50-product catalog + live journey listings) is the
+  // source of truth; fall back to the static list only if it's empty.
+  const all: Display[] = published.length > 0 ? published : fromStatic;
   const listings = cat === "All" ? all : all.filter((l) => l.category === cat);
 
   return (

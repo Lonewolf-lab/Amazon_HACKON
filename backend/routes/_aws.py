@@ -8,6 +8,7 @@ output, and a fail-soft DynamoDB read.
 import base64
 import json
 import os
+from typing import Optional
 
 import boto3
 from dotenv import load_dotenv
@@ -22,6 +23,10 @@ TABLE_PRODUCTS = os.getenv("DYNAMODB_TABLE_PRODUCTS", "products")
 TABLE_RETURNS = os.getenv("DYNAMODB_TABLE_RETURNS", "returns")
 TABLE_USERS = os.getenv("DYNAMODB_TABLE_USERS", "users")
 
+# S3 (photo storage). Bucket is in us-east-1; override with S3_REGION if it moves.
+S3_REGION = os.getenv("S3_REGION", os.getenv("AWS_REGION", "us-east-1"))
+S3_BUCKET = os.getenv("S3_BUCKET_NAME", "hackon-images")
+
 # Deterministic decoding: temperature 0 so the same photo always grades the
 # same way (no C-vs-R flip-flopping between runs). maxTokens generous enough
 # for the JSON replies our routes ask for.
@@ -29,6 +34,7 @@ INFERENCE_CONFIG = {"temperature": 0, "topP": 1, "maxTokens": 800}
 
 _bedrock = None
 _dynamodb = None
+_s3 = None
 
 
 def get_bedrock():
@@ -45,6 +51,41 @@ def get_dynamodb():
     if _dynamodb is None:
         _dynamodb = boto3.resource("dynamodb", region_name=DYNAMO_REGION)
     return _dynamodb
+
+
+def get_s3():
+    """Lazily create (and cache) the S3 client (bucket's region)."""
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3", region_name=S3_REGION)
+    return _s3
+
+
+def upload_image(image_b64: str, key: str, image_format: str = "jpeg") -> bool:
+    """Decode base64 and upload to the S3 bucket. Returns True on success."""
+    try:
+        body = base64.b64decode(image_b64)
+        fmt = "jpeg" if image_format in ("jpg", "", None) else image_format
+        get_s3().put_object(
+            Bucket=S3_BUCKET, Key=key, Body=body, ContentType=f"image/{fmt}"
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 - caller falls back to inline base64
+        print(f"[S3] upload failed for {key}: {exc}")
+        return False
+
+
+def presigned_url(key: str, expires: int = 3600) -> Optional[str]:
+    """Generate a temporary read URL for a private S3 object (default 1h)."""
+    try:
+        return get_s3().generate_presigned_url(
+            "get_object",
+            Params={"Bucket": S3_BUCKET, "Key": key},
+            ExpiresIn=expires,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[S3] presign failed for {key}: {exc}")
+        return None
 
 
 def converse_text(model_id: str, prompt: str) -> str:

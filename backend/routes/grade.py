@@ -21,11 +21,13 @@ router = APIRouter(prefix="/grade", tags=["grade"])
 
 NOVA_LITE = "amazon.nova-lite-v1:0"
 
-RUBRIC = """Grades:
-- A: Like new. No visible wear. Full functionality expected.
-- B: Minor cosmetic wear only. Full functionality expected.
-- C: Visible damage or functional defects. Reduced value.
-- R: Non-functional or unsafe. Recycle only.
+RUBRIC = """Grades (be conservative with R — most damaged items are REPAIRABLE and belong in C, not R):
+- A: Like new. No visible wear. Fully functional.
+- B: Minor cosmetic wear only (light scratches, scuffs). Fully functional.
+- C: Visible or significant but REPAIRABLE damage — e.g. cracked screen, dents, torn or frayed fabric, a broken part — where the item still powers on or can be refurbished. Reduced value, NOT discarded.
+- R: ONLY when the item is non-functional AND not economically repairable, OR unsafe — e.g. it will not power on, is shattered/crushed beyond repair, has a swollen or leaking battery, exposed wiring, or is missing critical components.
+
+Rule: a cracked screen, dents, or torn fabric on an item that still powers on is REPAIRABLE → Grade C (refurbish), NEVER R. If unsure between C and R, choose C.
 
 Return valid JSON only. No other text. Keys:
 - grade: 'A' | 'B' | 'C' | 'R'
@@ -33,7 +35,7 @@ Return valid JSON only. No other text. Keys:
 - resale_pct: integer 0-100 (suggested resale as % of original price: A=85, B=65, C=35, R=0)
 - confidence: integer 0-100
 - condition_score: integer 0-100 (A=90-100, B=70-89, C=40-69, R=0-39)
-- detected_issues: array of short strings naming each visible defect (e.g. "Scratch on left panel"); empty array [] if none"""
+- detected_issues: array of short strings naming each visible defect (e.g. "Cracked screen"); empty array [] if none"""
 
 
 class GradeRequest(BaseModel):
