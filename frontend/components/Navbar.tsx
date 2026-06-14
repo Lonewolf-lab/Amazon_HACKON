@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, ShoppingCart, MapPin, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { Search, ShoppingCart, MapPin, ChevronDown, UserCog, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePersona, PERSONAS } from "@/lib/persona";
 
 const links = [
   { href: "/", label: "Home" },
@@ -63,13 +65,8 @@ export function Navbar() {
             </button>
           </div>
 
-          {/* Account */}
-          <div className="hidden cursor-pointer flex-col justify-center rounded-sm border border-transparent px-2 py-1 leading-tight hover:border-white md:flex">
-            <span className="text-[11px]">Hello, Sid</span>
-            <span className="flex items-center text-[13px] font-bold">
-              Account &amp; Lists <ChevronDown className="h-3 w-3" />
-            </span>
-          </div>
+          {/* Persona switcher — drives personalized recommendations */}
+          <PersonaSwitcher />
 
           {/* Returns & Orders */}
           <Link
@@ -119,6 +116,67 @@ export function Navbar() {
         </nav>
       </div>
     </header>
+  );
+}
+
+function PersonaSwitcher() {
+  const { persona, setUserId } = usePersona();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative hidden md:block">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="flex flex-col justify-start rounded-sm border border-transparent px-2 py-1 text-left leading-tight hover:border-white"
+      >
+        <span className="flex items-center gap-1 text-[11px] text-gray-300">
+          <UserCog className="h-3 w-3" /> Viewing as · {persona.userId}
+        </span>
+        <span className="flex items-center text-[13px] font-bold text-white">
+          {persona.label} <ChevronDown className="h-3 w-3" />
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-md border border-[#D5D9D9] bg-white text-[#0F1111] shadow-lg">
+          <p className="border-b border-[#EAEDED] px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-[#565959]">
+            Shop as a different shopper
+          </p>
+          {PERSONAS.map((p, i) => {
+            const active = p.userId === persona.userId;
+            return (
+              <button
+                key={p.userId}
+                onMouseDown={() => {
+                  setUserId(p.userId);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-[#F7FAFA] ${
+                  active ? "bg-[#FFF7E6]" : ""
+                }`}
+              >
+                <span className="mt-0.5 h-4 w-4 shrink-0">
+                  {active && <Check className="h-4 w-4 text-[#067D62]" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium">{p.label}</span>
+                    <span className="rounded-sm bg-[#EEF6FB] px-1 py-0.5 text-[10px] font-bold text-[#007185]">
+                      User {i + 1} · {p.userId}
+                    </span>
+                  </span>
+                  <span className="block text-xs text-[#565959]">{p.blurb}</span>
+                </span>
+              </button>
+            );
+          })}
+          <p className="border-t border-[#EAEDED] px-3 py-2 text-[11px] text-[#565959]">
+            Recommendations adapt to the selected shopper.
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -46,7 +46,7 @@ const TILES = [
   {
     href: "/product",
     title: "Smart Buy",
-    desc: "Predictive return prevention — see the keep-rate before you buy.",
+    desc: "Predictive return prevention — switch shoppers to get personalized, right-size suggestions before you buy.",
     icon: ShieldCheck,
     cta: "See a product",
   },
@@ -140,6 +140,19 @@ export default function Home() {
           </div>
         ))}
       </section>
+
+      {/* Judge tip — self-guided demo signpost */}
+      <div className="mt-5 flex items-center gap-2 rounded-md border border-[#FF9900]/40 bg-[#FFF7E6] px-4 py-2.5 text-sm text-[#0F1111]">
+        <Sparkles className="h-4 w-4 shrink-0 text-[#FF9900]" />
+        <span>
+          <span className="font-bold">Try it:</span> open{" "}
+          <Link href="/product" className="font-medium text-[#007185] hover:underline">
+            Smart Buy
+          </Link>{" "}
+          and switch the shopper in the top bar — the AI&apos;s recommendation
+          personalizes to each shopper&apos;s real usage.
+        </span>
+      </div>
 
       {/* Entry tiles */}
       <h2 className="mb-3 mt-7 text-lg font-bold text-[#0F1111]">
