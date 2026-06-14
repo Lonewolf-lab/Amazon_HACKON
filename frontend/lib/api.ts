@@ -269,7 +269,9 @@ export interface JourneyRecord {
   status: string; // "in_refurbishment" | "completed" | "refurbished_listed"
   created_at: string;
   image_format?: string;
-  image_base64?: string; // only present on the detail endpoint
+  image_key?: string; // S3 object key (new storage path)
+  image_url?: string; // pre-signed S3 URL (detail endpoint, when image_key set)
+  image_base64?: string; // legacy inline photo (detail endpoint, older records)
 }
 
 /** Persist a finished ReLife Journey (powers the admin dashboard). */
@@ -338,5 +340,29 @@ export async function tradeIn(payload: {
     image_format: payload.image_format,
     model_hint: payload.model_hint,
   });
+  return data;
+}
+
+/* --------------------------- ReLife Marketplace --------------------------- */
+
+export interface MarketplaceListing {
+  id: string;
+  name: string;
+  category: string;
+  grade: string;
+  original: number;
+  price: number;
+  condition_score: number;
+  disposition: string;
+  created_at?: string;
+}
+
+/**
+ * Backend-persisted marketplace listings, derived from journey records in
+ * DynamoDB (resell = listed immediately; refurbish = listed once completed).
+ * This is the cross-device source of truth, replacing localStorage-only listings.
+ */
+export async function getMarketplace(): Promise<MarketplaceListing[]> {
+  const { data } = await api.get<MarketplaceListing[]>("/api/marketplace");
   return data;
 }

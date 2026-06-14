@@ -13,7 +13,7 @@ from boto3.dynamodb.conditions import Attr
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from ._aws import TABLE_RETURNS, get_dynamodb
+from ._aws import TABLE_RETURNS, get_dynamodb, presigned_url, upload_image
 
 router = APIRouter(prefix="/journey", tags=["journey"])
 
@@ -85,7 +85,13 @@ def complete(req: JourneyComplete):
         "created_at": _now_iso(),
     }
     if req.image_base64:
-        item["image_base64"] = req.image_base64
+        fmt = req.image_format or "jpeg"
+        key = f"journeys/{req.return_id}.{fmt}"
+        # Prefer S3 (store only the key); fall back to inline base64 if it fails.
+        if upload_image(req.image_base64, key, fmt):
+            item["image_key"] = key
+        else:
+            item["image_base64"] = req.image_base64
 
     try:
         get_dynamodb().Table(TABLE_RETURNS).put_item(Item=item)
@@ -143,7 +149,15 @@ def detail(return_id: str):
             Key={"return_id": return_id, "user_id": JOURNEY_SK}
         )
         item = resp.get("Item")
-        return _clean(item) if item else {}
+        if not item:
+            return {}
+        item = _clean(item)
+        # Photo in S3 → hand back a temporary pre-signed URL for the modal.
+        if item.get("image_key"):
+            url = presigned_url(item["image_key"])
+            if url:
+                item["image_url"] = url
+        return item
     except Exception as exc:  # noqa: BLE001
         print(f"[journey] detail failed: {exc}")
         return {}
