@@ -371,6 +371,7 @@ export interface MarketplaceListing {
   price: number;
   condition_score: number;
   disposition: string;
+  asin?: string;
   created_at?: string;
 }
 

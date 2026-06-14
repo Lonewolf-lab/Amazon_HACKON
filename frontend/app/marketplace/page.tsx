@@ -14,8 +14,11 @@ import {
   Package,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { getPublishedListings } from "@/lib/published";
 import { getMarketplace } from "@/lib/api";
+import { useCart } from "@/lib/cart";
+import { ProductThumb } from "@/components/ProductThumb";
 
 /* Listings simulated from the seeded product catalog (real product names),
    priced as a % of original by grade. In production this is a returns×products
@@ -74,10 +77,12 @@ type Display = Listing & {
   score: number;
   disposition?: string;
   justListed?: boolean;
+  asin?: string;
 };
 
 export default function MarketplacePage() {
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
+  const { addItem } = useCart();
 
   // Items the user just sent through the ReLife Journey (from localStorage).
   const [published, setPublished] = useState<Display[]>([]);
@@ -111,6 +116,7 @@ export default function MarketplacePage() {
           price: m.price,
           score: m.condition_score,
           disposition: m.disposition,
+          asin: m.asin,
           justListed: localIds.has(m.id),
         }));
       } catch {
@@ -194,7 +200,13 @@ export default function MarketplacePage() {
             >
               {/* Image area */}
               <div className="relative flex h-32 items-center justify-center bg-[#F7F8F8]">
-                <Icon className="h-12 w-12 text-[#979aa0]" />
+                <ProductThumb
+                  asin={l.asin}
+                  id={l.id}
+                  name={l.name}
+                  className="h-full w-full object-contain p-3"
+                  fallback={<Icon className="h-12 w-12 text-[#979aa0]" />}
+                />
                 <span
                   className={`absolute left-2 top-2 rounded-sm px-1.5 py-0.5 text-[11px] font-bold text-white ${GRADE_TONE[l.grade]}`}
                 >
@@ -239,9 +251,30 @@ export default function MarketplacePage() {
                   <Leaf className="h-3 w-3" /> Earns green credits
                 </p>
 
-                <button className="mt-2 w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-1.5 text-xs font-medium text-[#0F1111] hover:bg-[#F7CA00]">
-                  Add to Cart
-                </button>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <Link
+                    href={`/marketplace/${encodeURIComponent(l.id)}`}
+                    className="w-full rounded-full border border-[#D5D9D9] bg-white py-1.5 text-center text-xs font-medium text-[#0F1111] hover:bg-[#F7FAFA]"
+                  >
+                    Learn More
+                  </Link>
+                  <button
+                    onClick={() =>
+                      addItem({
+                        id: l.id,
+                        name: l.name,
+                        price: l.price,
+                        original: l.original,
+                        grade: l.grade,
+                        category: l.category,
+                        asin: l.asin,
+                      })
+                    }
+                    className="w-full rounded-full border border-[#FCD200] bg-[#FFD814] py-1.5 text-xs font-medium text-[#0F1111] hover:bg-[#F7CA00]"
+                  >
+                    Add to Cart
+                  </button>
+                </div>
               </div>
             </div>
           );
