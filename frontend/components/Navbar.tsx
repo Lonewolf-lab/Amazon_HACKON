@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Search, ShoppingCart, MapPin, ChevronDown, UserCog, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePersona, PERSONAS } from "@/lib/persona";
+import { useCart } from "@/lib/cart";
 
 const links = [
   { href: "/", label: "Home" },
@@ -19,6 +20,7 @@ const links = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const { count, toggle } = useCart();
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -42,8 +44,8 @@ export function Navbar() {
           <div className="hidden items-end gap-0.5 rounded-sm border border-transparent px-2 py-1 hover:border-white lg:flex">
             <MapPin className="mb-0.5 h-4 w-4 text-gray-300" />
             <div className="leading-tight">
-              <p className="text-[11px] text-gray-300">Deliver to Sid</p>
-              <p className="text-[13px] font-bold">Mumbai 400001</p>
+              <p className="text-[11px] text-gray-300">Deliver to</p>
+              <p className="text-[13px] font-bold">Select your address</p>
             </div>
           </div>
 
@@ -78,15 +80,19 @@ export function Navbar() {
           </Link>
 
           {/* Cart */}
-          <div className="flex cursor-pointer items-end gap-1 rounded-sm border border-transparent px-2 py-1 hover:border-white">
+          <button
+            onClick={toggle}
+            aria-label="Open cart"
+            className="flex cursor-pointer items-end gap-1 rounded-sm border border-transparent px-2 py-1 hover:border-white"
+          >
             <div className="relative">
               <ShoppingCart className="h-7 w-7" />
               <span className="absolute -top-1 left-3 text-sm font-bold text-[#FF9900]">
-                3
+                {count}
               </span>
             </div>
             <span className="hidden text-[13px] font-bold sm:inline">Cart</span>
-          </div>
+          </button>
         </div>
       </div>
 
