@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { getPublishedListings } from "@/lib/published";
 import { getMarketplace } from "@/lib/api";
+import { productImage } from "@/lib/productImages";
 
 /* Listings simulated from the seeded product catalog (real product names),
    priced as a % of original by grade. In production this is a returns×products
@@ -194,7 +195,7 @@ export default function MarketplacePage() {
             >
               {/* Image area */}
               <div className="relative flex h-32 items-center justify-center bg-[#F7F8F8]">
-                <Icon className="h-12 w-12 text-[#979aa0]" />
+                <ProductImage name={l.name} Icon={Icon} />
                 <span
                   className={`absolute left-2 top-2 rounded-sm px-1.5 py-0.5 text-[11px] font-bold text-white ${GRADE_TONE[l.grade]}`}
                 >
@@ -248,5 +249,30 @@ export default function MarketplacePage() {
         })}
       </div>
     </div>
+  );
+}
+
+/** Renders the product photo if one is mapped + loads; else the category icon. */
+function ProductImage({
+  name,
+  Icon,
+}: {
+  name: string;
+  Icon: typeof Package;
+}) {
+  const src = productImage(name);
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return <Icon className="h-12 w-12 text-[#979aa0]" />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={name}
+      className="h-full w-full object-contain p-2"
+      onError={() => setFailed(true)}
+    />
   );
 }
