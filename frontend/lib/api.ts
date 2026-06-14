@@ -17,11 +17,28 @@ export const DEMO_RETURN_ID = "RET001";
 
 /* ----------------------------- Response types ----------------------------- */
 
+export interface RightSizeAlternative {
+  asin: string;
+  name: string;
+  refurbished_price: number;
+  condition: string;
+}
+
 export interface PreventScore {
   keep_rate: number;
   top_reason: string;
   badge_color: "green" | "yellow" | "red" | string;
   recommendation: string;
+  // product info (so the page can render any product's header)
+  product_name?: string;
+  price_inr?: number;
+  category?: string;
+  // personalized right-sizing
+  usage_profile?: string[];
+  needs_fit?: "good_fit" | "overkill" | "underpowered" | string;
+  recommended_alternative?: RightSizeAlternative | null;
+  potential_savings_inr?: number;
+  right_size_reason?: string;
 }
 
 export interface GradeResult {

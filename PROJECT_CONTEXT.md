@@ -3,7 +3,7 @@
 > **Single source of truth.** Share this file to get any teammate (or AI assistant) fully up to speed.
 > Event: **Amazon HackOn 6.0** · Team of 2 · Tagline: **"Every Product Deserves a Second Life."**
 > Repo folder is named `reloop/` for historical reasons — the product is **Amazon ReLife AI**.
-> *Last updated: Jun 14, 2026 — after the operations layer (journey records, refurbishment queue, admin decisions table + modal) and the real Green Credits ledger were added.*
+> *Last updated: Jun 14, 2026 — after: (1) the operations layer (journey records, refurbishment queue, admin decisions table + modal), (2) the real Green Credits ledger, and (3) Personalized Predictive Return Prevention (per-shopper right-sizing + a persona switcher).*
 
 ---
 
@@ -133,9 +133,11 @@ reloop/
     ├── components/
     │   ├── Navbar.tsx
     │   └── ui/                     # shadcn primitives: button, card, badge
+    ├── public/products/        # product images served by Next (ASIN051.jpg ROG, ASIN052.jpg Lenovo)
     └── lib/
         ├── api.ts                  # typed axios calls to every endpoint
         ├── published.ts           # localStorage bridge: completed return → marketplace listing
+        ├── persona.tsx            # shopper persona context + switcher state (Smart Buy personalization)
         └── utils.ts               # cn()
 ```
 
@@ -150,7 +152,7 @@ reloop/
 | `/marketplace` | **ReLife Marketplace** | Static certified catalog **+ user-published returns** (resell = "Pre-owned" immediately; refurbished items appear as "Refurbished" once the admin completes them). "Just listed" + disposition + Certified badges |
 | `/tradein` | **Smart Trade-In** | Upload your gadget → AI value + upgrade suggestion |
 | `/credits` | **Impact / Green Credits** | **REAL ledger**: live balance, CO₂, returns-rewarded count; full **Credit/Debit transaction history**; redeem buttons actually **debit** and refresh |
-| `/product` | **Smart Buy** | Keep-rate prevention badge (live `/api/prevent/score`) |
+| `/product` | **Smart Buy** | **Personalized** predictive return prevention. Keep-rate badge **+ per-shopper right-sizing**: if a product is overkill for the signed-in shopper's usage, it suggests a cheaper certified-refurbished alternative + ₹ savings. A **persona switcher** (navbar: User 1 Office / User 2 Gamer / User 3 Student) makes it self-demonstrating — same product, different advice. Product picker, real product images, Back button, response cache (instant revisits), working Add-to-Cart/Buy-Now. |
 | `/admin` | **Admin Console** | **REAL** Refurbishment Queue + **REAL** AI Decisions table (every resell/refurbish/exchange/donate/recycle), each row → **detail modal** with the uploaded photo, return reason, AI-detected problems, and a **"Mark refurbishment complete → list as Renewed"** action. (KPI cards + charts are still illustrative/mock.) |
 
 ---
@@ -159,8 +161,12 @@ reloop/
 
 Base URL local: `http://localhost:8000`. All feature routes under `/api`. Health: `GET /` → `{"status": "Amazon ReLife AI is live"}`.
 
-### `GET|POST /api/prevent/score?asin=ASIN001&user_id=USER001` — Return Prevention (Nova Lite)
-→ `{ keep_rate:int, top_reason:str, badge_color:"green"|"yellow"|"red", recommendation:str }`
+### `GET|POST /api/prevent/score?asin=ASIN001&user_id=USER001` — Personalized Return Prevention (Nova Lite)
+→ `{ keep_rate:int, top_reason:str, badge_color:"green"|"yellow"|"red", recommendation:str,`
+`   product_name:str, price_inr:int, category:str,`
+`   usage_profile:string[], needs_fit:"good_fit"|"overkill"|"underpowered",`
+`   recommended_alternative:{asin,name,refurbished_price,condition}|null, potential_savings_inr:int, right_size_reason:str }`
+Reads the user's `usage_profile`, scans cheaper same-category products, and asks Nova Lite whether the item is overkill for that shopper → returns a right-size alternative + savings. Robust fallbacks incl. a deterministic heuristic (works even if Bedrock is down).
 
 ### `POST /api/grade` — AI Inspection (Nova Lite, multimodal)
 Body: `{ image_urls:string[], asin:str, return_id:str, image_base64?:str, image_format?:"jpeg"|"png"|"webp"|"gif" }`
@@ -224,6 +230,7 @@ Demo IDs: `ASIN001`, `USER001`. Journey records use a fresh unique id per run (`
 6. **Resale-lifecycle correctness** — resell lists immediately ("Pre-owned"); refurbish goes to the warehouse queue first and lists as "Amazon Renewed" only after a technician marks it done.
 7. **Inspect-once / Work Order** — refurbish items carry a repair checklist (from `detected_issues`) so the warehouse doesn't re-inspect — the core cost-savings story.
 8. **Real, linked data** — every AI decision is a DynamoDB record (Admin reads it); every credit/debit is a ledger row (Green Credits page reads it).
+9. **Personalized prevention** — keep-rate + per-shopper right-sizing driven by each user's `usage_profile`; a navbar persona switcher (USER001/002/003) makes "different shoppers get different advice" self-evident to a solo judge. Frontend caches responses + prefetches the recommended alternative, so the Back button and the "see alternative" jump are instant.
 
 ---
 
@@ -280,6 +287,7 @@ npm run dev                                 # http://localhost:3000
 - **Operations layer:** journey decisions persisted to DynamoDB; Admin **Refurbishment Queue** + **AI Decisions table** + **detail modal** (photo, reason, detected issues, "mark refurbishment complete → list as Renewed").
 - **Resale lifecycle:** resell → instant "Pre-owned" marketplace listing; refurbish → warehouse Work Order (repair checklist) → "Amazon Renewed" on completion.
 - **Green Credits:** real credit/debit **ledger**; journey issues credits with a traceable reason; redeem actually debits; page shows live balance + full history.
+- **Personalized Predictive Return Prevention** (Smart Buy): per-shopper right-sizing + persona switcher + product picker + real product images (`/public/products/ASIN051.jpg` ROG, `ASIN052.jpg` Lenovo) + Back button + response cache/prefetch + working cart/buy buttons. Requires a re-seed for the `usage_profile`s + the two laptop products.
 - Backend auto-deploys to Render and frontend to Vercel on `git push`.
 
 ### 🔴 NEEDS FIXING (blocking for a deployed/judged demo)

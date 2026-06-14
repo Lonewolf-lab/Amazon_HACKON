@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { PersonaProvider } from "@/lib/persona";
 
 export const metadata: Metadata = {
   title: "Amazon ReLife AI — Every Product Deserves a Second Life",
@@ -22,8 +23,10 @@ export default function RootLayout({
         }}
         className="bg-[#F3F3F3] text-[#0F1111] antialiased"
       >
-        <Navbar />
-        <main className="min-h-screen bg-[#F3F3F3]">{children}</main>
+        <PersonaProvider>
+          <Navbar />
+          <main className="min-h-screen bg-[#F3F3F3]">{children}</main>
+        </PersonaProvider>
       </body>
     </html>
   );

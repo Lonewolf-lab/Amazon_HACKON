@@ -9,6 +9,10 @@ import os
 import random
 from datetime import datetime, timedelta
 from decimal import Decimal
+from dotenv import load_dotenv
+
+# Load backend/.env so AWS creds are available when running this script directly.
+load_dotenv()
 
 # ─── AWS Setup ───────────────────────────────────────────────────────────────
 
@@ -105,6 +109,23 @@ PRODUCT_DATA = {
     ],
 }
 
+# Two demo laptops appended as ASIN051 / ASIN052 so existing ASINs don't shift.
+# Fixed prices (no ±10% variance) so the right-size demo numbers stay stable.
+DEMO_LAPTOPS = [
+    ("ASUS ROG Strix G16 Gaming Laptop (RTX 4060, Core i7)", 89990, 14),
+    ("Lenovo IdeaPad Slim 3 Laptop (Core i5, 16GB)",         41990, 8),
+]
+
+# Usage profiles power Predictive Return Prevention (right-sizing): the AI
+# compares each product against how THIS shopper actually uses their devices.
+# (persona_label, usage_profile, starting_green_credits_balance)
+PERSONAS = {
+    1: ("Office / Casual",    ["web browsing", "video streaming", "office work", "video calls"], 55),
+    2: ("Gamer / Power user", ["AAA gaming", "video editing", "3D rendering", "live streaming"], 340),
+    3: ("Student",            ["note-taking", "online research", "light study", "budget-conscious"], 80),
+}
+DEFAULT_PROFILE = ["general shopping", "everyday use"]
+
 INDIAN_NAMES = [
     "Aarav Sharma",
     "Priya Nair",
@@ -182,6 +203,22 @@ def build_products() -> list:
             })
             asin_counter += 1
 
+    # Demo laptops (ASIN051 / ASIN052) — fixed prices for the right-size demo.
+    for product_name, base_price, avg_rr in DEMO_LAPTOPS:
+        asin = f"ASIN{str(asin_counter).zfill(3)}"
+        keep_rate = max(0, min(100, 100 - avg_rr - random.randint(-5, 10)))
+        items.append({
+            "asin":               asin,
+            "product_name":       product_name,
+            "category":           "electronics",
+            "avg_return_rate":    avg_rr,
+            "top_return_reasons": ["not as described", "changed my mind"],
+            "keep_rate_score":    keep_rate,
+            "seller_id":          "SELLER001",
+            "price_inr":          Decimal(str(base_price)),
+        })
+        asin_counter += 1
+
     return items
 
 
@@ -212,14 +249,49 @@ def build_users(asins: list, return_ids: list) -> list:
     items = []
     for i in range(1, 11):
         idx = i - 1
+        persona, profile, balance = PERSONAS.get(
+            i, ("General Shopper", DEFAULT_PROFILE, random.randint(0, 500))
+        )
         items.append({
             "user_id":             f"USER{str(i).zfill(3)}",
             "name":                INDIAN_NAMES[idx],
             "email":               EMAILS[idx],
+            "persona":             persona,
+            "usage_profile":       profile,
             "purchase_history":    random.sample(asins, random.randint(5, 10)),
             "return_history":      random.sample(return_ids, random.randint(2, 5)),
-            "green_credits_balance": random.randint(0, 500),
+            "green_credits_balance": balance,
             "wishlist_asins":      random.sample(asins, random.randint(3, 5)),
+        })
+    return items
+
+
+# ─── Build a small, consistent Green Credits ledger for USER001 ───────────────
+# So the Impact page shows a populated, reconciled history out of the box
+# (final balance 55 matches USER001's seeded green_credits_balance).
+
+def build_seed_ledger() -> list:
+    entries = [
+        ("credit", 50, "ReLife return — Amazon Renewed (boAt Rockerz 450)"),
+        ("credit", 35, "ReLife return — Peer-to-Peer Resale (Levi's 511 Jeans)"),
+        ("debit",  50, "Redeemed: ₹50 Amazon Voucher"),
+        ("credit", 20, "ReLife return — Donate to NGO (Philips Mixer)"),
+    ]
+    items, bal = [], 0
+    for n, (kind, amount, reason) in enumerate(entries, start=1):
+        bal = bal + amount if kind == "credit" else bal - amount
+        txn_id = f"CTX-SEED-{str(n).zfill(2)}"
+        items.append({
+            "return_id":     txn_id,
+            "user_id":       "USER001",
+            "record_type":   "credit_txn",
+            "txn_id":        txn_id,
+            "type":          kind,
+            "amount":        amount,
+            "reason":        reason,
+            "balance_after": bal,
+            "ref":           "",
+            "created_at":    random_past_datetime(30),
         })
     return items
 
@@ -252,6 +324,7 @@ def main():
         print("[2/3] Seeding 'returns' table...")
         returns_table = dynamodb.Table("returns")
         returns       = build_returns(asins)
+        returns      += build_seed_ledger()   # seed USER001's credit ledger
         batch_write(returns_table, returns)
         print(f"      ✓ Inserted {len(returns)} items into 'returns'\n")
 
