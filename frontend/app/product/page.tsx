@@ -25,7 +25,7 @@ export default function ProductPage() {
   useEffect(() => {
     getPreventScore({ asin: "ASIN001", user_id: "USER001" })
       .then(setScore)
-      .catch(() => setError("Could not reach the ReLoop intelligence service."))
+      .catch(() => setError("Could not reach the ReLife intelligence service."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -114,11 +114,11 @@ export default function ProductPage() {
 
           <p className="mt-3 text-lg font-medium text-[#067D62]">In Stock</p>
 
-          {/* ReLoop Purchase Intelligence */}
+          {/* ReLife Purchase Intelligence */}
           <div className="mt-4 rounded-md border border-[#D5D9D9] bg-[#FAFAFA] p-3">
             <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[#565959]">
               <Sparkles className="h-3.5 w-3.5 text-[#FF9900]" />
-              ReLoop Purchase Intelligence
+              ReLife Purchase Intelligence
             </p>
 
             {loading && (
@@ -166,7 +166,7 @@ export default function ProductPage() {
           </dl>
 
           <div className="mt-3 rounded-sm bg-[#F0FAF7] p-2 text-[11px] text-[#067D62]">
-            ♻ This product is ReLoop eligible — returns earn Green Credits
+            ♻ This product is ReLife eligible — returns earn Green Credits
           </div>
         </aside>
       </div>

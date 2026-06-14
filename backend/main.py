@@ -1,17 +1,25 @@
-"""ReLoop API — FastAPI entrypoint.
+"""Amazon ReLife AI — FastAPI entrypoint.
 
 Initializes the app, configures CORS (wide open for the hackathon), and mounts
-the four feature routers under the /api prefix.
+the feature routers under the /api prefix.
 """
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import prevent, grade, redirect, credits
+from routes import (
+    prevent,
+    grade,
+    redirect,
+    credits,
+    next_owner,
+    certificate,
+    tradein,
+)
 
 load_dotenv()
 
-app = FastAPI(title="ReLoop API")
+app = FastAPI(title="Amazon ReLife AI API")
 
 # CORS — allow everything for the hackathon. Tighten before production.
 app.add_middleware(
@@ -27,8 +35,11 @@ app.include_router(prevent.router, prefix="/api")
 app.include_router(grade.router, prefix="/api")
 app.include_router(redirect.router, prefix="/api")
 app.include_router(credits.router, prefix="/api")
+app.include_router(next_owner.router, prefix="/api")
+app.include_router(certificate.router, prefix="/api")
+app.include_router(tradein.router, prefix="/api")
 
 
 @app.get("/")
 def health_check():
-    return {"status": "ReLoop API is live"}
+    return {"status": "Amazon ReLife AI is live"}

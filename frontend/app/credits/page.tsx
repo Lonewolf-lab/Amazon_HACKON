@@ -83,7 +83,7 @@ export default function CreditsPage() {
       <div className="mb-5 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-medium text-[#0F1111]">
-            Green Credits Dashboard
+            ReLife Impact &amp; Green Credits
           </h1>
           <p className="text-sm text-[#565959]">Account: USER001</p>
         </div>
@@ -126,7 +126,7 @@ export default function CreditsPage() {
             <span className="text-4xl font-bold">{balance}</span>
             <span className="text-xs opacity-90">credits</span>
           </div>
-          <p className="mt-3 font-bold text-[#0F1111]">ReLoop Green Credits</p>
+          <p className="mt-3 font-bold text-[#0F1111]">ReLife Green Credits</p>
 
           <div className="mt-4 w-full">
             <div className="mb-1 flex justify-between text-xs text-[#565959]">

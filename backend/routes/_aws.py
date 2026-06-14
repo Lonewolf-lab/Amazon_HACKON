@@ -5,6 +5,7 @@ environment), exposes lazily-created Bedrock + DynamoDB clients, a thin
 wrapper over the Bedrock `converse` API, a tolerant JSON parser for model
 output, and a fail-soft DynamoDB read.
 """
+import base64
 import json
 import os
 
@@ -50,6 +51,36 @@ def converse_text(model_id: str, prompt: str) -> str:
     response = get_bedrock().converse(
         modelId=model_id,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
+    )
+    return response["output"]["message"]["content"][0]["text"]
+
+
+def converse_image(
+    model_id: str, prompt: str, image_b64: str, image_format: str = "jpeg"
+) -> str:
+    """Call a multimodal Bedrock model with a text prompt + one image.
+
+    `image_b64` is plain base64 (no `data:` prefix). We decode it to raw bytes
+    because boto3 base64-encodes blob fields itself — passing the string would
+    double-encode. `image_format` is one of: png, jpeg, gif, webp.
+    """
+    image_bytes = base64.b64decode(image_b64)
+    response = get_bedrock().converse(
+        modelId=model_id,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"text": prompt},
+                    {
+                        "image": {
+                            "format": image_format,
+                            "source": {"bytes": image_bytes},
+                        }
+                    },
+                ],
+            }
+        ],
     )
     return response["output"]["message"]["content"][0]["text"]
 

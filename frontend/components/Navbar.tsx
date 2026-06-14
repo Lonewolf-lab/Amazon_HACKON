@@ -6,10 +6,13 @@ import { Search, ShoppingCart, MapPin, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/product", label: "Product Page" },
-  { href: "/portal", label: "Return Portal" },
-  { href: "/credits", label: "Green Credits" },
-  { href: "/admin", label: "Admin Dashboard" },
+  { href: "/", label: "Home" },
+  { href: "/portal", label: "ReLife Journey" },
+  { href: "/marketplace", label: "ReLife Marketplace" },
+  { href: "/tradein", label: "Trade-In" },
+  { href: "/credits", label: "Impact" },
+  { href: "/product", label: "Smart Buy" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export function Navbar() {
@@ -22,14 +25,14 @@ export function Navbar() {
         <div className="mx-auto flex h-[60px] max-w-[1500px] items-center gap-2 px-2 sm:gap-4 sm:px-4">
           {/* Logo + tagline */}
           <Link
-            href="/product"
+            href="/"
             className="flex shrink-0 flex-col justify-center rounded-sm border border-transparent px-2 py-1 hover:border-white"
           >
             <span className="text-2xl font-bold leading-none text-[#FF9900]">
-              reloop
+              ReLife<span className="text-white"> AI</span>
             </span>
             <span className="hidden text-[10px] leading-tight text-gray-300 sm:block">
-              Every return finds its next owner
+              Every Product Deserves a Second Life
             </span>
           </Link>
 
@@ -49,7 +52,7 @@ export function Navbar() {
             </button>
             <input
               type="text"
-              placeholder="Search ReLoop"
+              placeholder="Search Amazon ReLife AI"
               className="h-full flex-1 px-3 text-sm text-[#0F1111] outline-none"
             />
             <button
@@ -94,7 +97,10 @@ export function Navbar() {
       <div className="bg-[#FF9900]">
         <nav className="mx-auto flex max-w-[1500px] items-center gap-1 px-2 sm:px-4">
           {links.map((link) => {
-            const active = pathname?.startsWith(link.href);
+            const active =
+              link.href === "/"
+                ? pathname === "/"
+                : pathname?.startsWith(link.href);
             return (
               <Link
                 key={link.href}

@@ -29,6 +29,36 @@ export interface GradeResult {
   reason: string;
   resale_pct: number;
   confidence: number;
+  condition_score: number;
+  detected_issues: string[];
+}
+
+export interface BuyerSegment {
+  segment: string;
+  match_pct: number;
+  reasoning: string;
+  persona_example: string;
+  wishlist_hit: boolean;
+}
+
+export interface Certificate {
+  certificate_id: string;
+  product_name: string;
+  grade: string;
+  condition_score: number;
+  confidence: number;
+  verdict: string;
+  co2_saved_kg: number;
+  issued_at: string;
+  blurb: string;
+}
+
+export interface TradeInResult {
+  condition_grade: string;
+  trade_in_value_inr: number;
+  upgrade_name: string;
+  upgrade_reason: string;
+  instant_credit: number;
 }
 
 export interface RedirectPath {
@@ -56,6 +86,10 @@ export interface GradePayload {
   image_urls: string[];
   asin?: string;
   return_id?: string;
+  /** Base64 of the uploaded photo (no data: prefix) → real multimodal grading. */
+  image_base64?: string;
+  /** Image format: png | jpeg | gif | webp. Defaults to jpeg server-side. */
+  image_format?: string;
 }
 
 export interface RedirectPayload {
@@ -98,6 +132,8 @@ export async function gradeItem(payload: GradePayload): Promise<GradeResult> {
     image_urls: payload.image_urls,
     asin: payload.asin ?? DEMO_ASIN,
     return_id: payload.return_id ?? DEMO_RETURN_ID,
+    image_base64: payload.image_base64,
+    image_format: payload.image_format,
   });
   return data;
 }
@@ -128,6 +164,67 @@ export async function issueCredits(
     user_id: payload.user_id ?? DEMO_USER_ID,
     amount: payload.amount,
     return_id: payload.return_id ?? DEMO_RETURN_ID,
+  });
+  return data;
+}
+
+/**
+ * Next Best Owner — ranked buyer segments for a second-life item.
+ * Backend expects JSON `{ asin, grade, return_id }` (Nova Pro).
+ */
+export async function getNextOwners(payload: {
+  asin?: string;
+  grade: string;
+  return_id?: string;
+}): Promise<BuyerSegment[]> {
+  const { data } = await api.post<BuyerSegment[]>("/api/next-owner", {
+    asin: payload.asin ?? DEMO_ASIN,
+    grade: payload.grade,
+    return_id: payload.return_id ?? DEMO_RETURN_ID,
+  });
+  return data;
+}
+
+/**
+ * ReLife Trust Certificate — generate the certificate for a graded item.
+ * Backend expects JSON `{ return_id, asin, grade, condition_score, confidence, chosen_path, buyer_segment? }`.
+ */
+export async function generateCertificate(payload: {
+  return_id?: string;
+  asin?: string;
+  grade: string;
+  condition_score: number;
+  confidence: number;
+  chosen_path: string;
+  buyer_segment?: string;
+}): Promise<Certificate> {
+  const { data } = await api.post<Certificate>("/api/certificate", {
+    return_id: payload.return_id ?? DEMO_RETURN_ID,
+    asin: payload.asin ?? DEMO_ASIN,
+    grade: payload.grade,
+    condition_score: payload.condition_score,
+    confidence: payload.confidence,
+    chosen_path: payload.chosen_path,
+    buyer_segment: payload.buyer_segment,
+  });
+  return data;
+}
+
+/**
+ * Smart Trade-In — grade a customer's own gadget and suggest an upgrade.
+ * Backend expects JSON `{ category, image_base64?, image_format?, model_hint? }`.
+ */
+export async function tradeIn(payload: {
+  category?: string;
+  image_base64?: string;
+  image_format?: string;
+  model_hint?: string;
+}): Promise<TradeInResult> {
+  const { data } = await api.post<TradeInResult>("/api/tradein", {
+    category: payload.category ?? "electronics",
+    image_base64: payload.image_base64,
+    image_format: payload.image_format,
+    model_hint: payload.model_hint,
   });
   return data;
 }

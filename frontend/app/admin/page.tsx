@@ -59,7 +59,7 @@ const returnTrend = {
   labels: DAYS,
   datasets: [
     {
-      label: "Before ReLoop",
+      label: "Before ReLife",
       data: BEFORE,
       borderColor: "#979aa0",
       backgroundColor: "transparent",
@@ -68,7 +68,7 @@ const returnTrend = {
       tension: 0.1,
     },
     {
-      label: "After ReLoop",
+      label: "After ReLife",
       data: AFTER,
       borderColor: "#FF9900",
       backgroundColor: "rgba(255,153,0,0.12)",
@@ -145,7 +145,7 @@ export default function AdminPage() {
       {/* AWS console-style header */}
       <div className="bg-[#232F3E] text-white">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2 px-4 py-2.5">
-          <h1 className="text-base font-bold">ReLoop Admin Console</h1>
+          <h1 className="text-base font-bold">Amazon ReLife AI — Admin Console</h1>
           <span className="rounded-sm bg-[#161E2D] px-2 py-1 text-xs text-gray-300">
             Region: ap-south-1 (Mumbai)
           </span>

@@ -1,21 +1,38 @@
-# ReLoop — AI-Powered Returns & Sustainable Resale
+# Amazon ReLife AI — Every Product Deserves a Second Life
 
-ReLoop turns the returns black hole into a circular loop: it stops bad purchases before they happen with **predictive return prevention**, runs **smart quality grading** on every returned item, and routes each one to its highest-value second life — **peer-to-peer resale**, **certified refurbished recommendations**, donation, or recycling — while rewarding shoppers with **green credits** for every sustainable choice.
+**Amazon ReLife AI** is an intelligent second-life commerce ecosystem for Amazon HackOn 6.0. Millions of products are returned, underused, or discarded despite being perfectly usable. ReLife uses generative AI to make commerce decisions: it runs **smart quality grading** on a real product photo, then an **AI decision engine** determines the item's most valuable next life — **peer-to-peer resale**, **certified refurbished**, exchange, donation, or recycling — actively finds its **next best owner**, issues a **trust certificate**, rewards customers with **green credits**, and even delivers **predictive return prevention** before a purchase is ever made.
+
+> The image analysis is only step one. The intelligence is the decision engine, buyer matching, trust generation, sustainability incentives, and the second-life marketplace.
+
+## What makes it different
+
+Most solutions stop at *Upload → Detect Damage*. ReLife goes the full loop:
+
+```
+Upload Product → AI Inspection (condition score) → AI Decision Engine
+→ Next Best Owner → Trust Certificate → Marketplace / Trade-In
+```
 
 ## Tech Stack
 
-| Layer     | Stack                                                              |
-| --------- | ----------------------------------------------------------------- |
-| Frontend  | Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui · axios · Chart.js / react-chartjs-2 |
-| Backend   | FastAPI · Uvicorn · Pydantic · httpx                              |
-| Cloud/AI  | AWS (boto3) · DynamoDB · S3                                       |
+| Layer    | Stack |
+| -------- | ----- |
+| Frontend | Next.js 14 (App Router) · TypeScript · Tailwind CSS · Chart.js · axios |
+| Backend  | FastAPI · Uvicorn · Pydantic · boto3 |
+| AI       | **AWS Bedrock** — Amazon **Nova Lite** (multimodal inspection, prevention, trade-in) · Amazon **Nova Pro** (decision engine, next-best-owner) |
+| Data     | AWS DynamoDB (products / returns / users) · S3 |
 
-The app has four screens:
+All Bedrock/DynamoDB calls are wrapped with graceful fallbacks, so a cold start or AWS hiccup never breaks the demo.
 
-1. **Product** — shopper-facing keep-rate badge (predictive return prevention).
-2. **Seller Return Portal** — image upload → smart quality grading → recommended routing.
-3. **Green Credits** — sustainability rewards wallet.
-4. **Admin Dashboard** — recovery value, disposition mix, and credits analytics.
+## Screens
+
+1. **Home** — ecosystem dashboard + impact stats.
+2. **ReLife Journey** (`/portal`) — the 5-step returns flow: Upload → AI Inspection (0–100 condition score + detected issues) → 5-way Decision → Next Best Owner → ReLife Certificate.
+3. **ReLife Marketplace** — AI-certified second-life listings, filterable by category.
+4. **Smart Trade-In** — upload your own gadget → instant AI trade-in value + upgrade suggestion.
+5. **Impact** — green credits wallet, CO₂ saved, sustainability tier.
+6. **Smart Buy** — product page with predictive return-prevention keep-rate badge.
+7. **Admin** — returns analytics: recovery value, grade mix, risk products.
 
 ## Local Setup
 
@@ -24,69 +41,52 @@ The app has four screens:
 ```bash
 cd backend
 python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
+# Windows:  venv\Scripts\activate
+# macOS/Linux:  source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
-- API: http://localhost:8000
-- Health check: http://localhost:8000/
-- Swagger UI: http://localhost:8000/docs
+- API: http://localhost:8000 · Health: `/` · Swagger UI: `/docs`
 
 ### Frontend (Next.js 14)
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev   # http://localhost:3000
 ```
 
-- App: http://localhost:3000 (redirects to `/product`)
-
-> Start the backend first so the frontend's API calls resolve.
+> Start the backend first so the frontend's API calls resolve. `frontend/.env.local` sets `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:8000`).
+> Tip (Windows): don't run `npm run build` while `npm run dev` is running — they share `.next` and the build will fail with `EPERM`. Stop dev first.
 
 ## Environment Variables
 
-### `frontend/.env.local`
+**`frontend/.env.local`** — `NEXT_PUBLIC_API_URL` (backend base URL).
 
-| Variable              | Description              | Example                 |
-| --------------------- | ------------------------ | ----------------------- |
-| `NEXT_PUBLIC_API_URL` | Base URL of the backend  | `http://localhost:8000` |
+**`backend/.env`** — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (`us-east-1`), `DYNAMODB_TABLE_PRODUCTS`, `DYNAMODB_TABLE_RETURNS`, `DYNAMODB_TABLE_USERS`, `S3_BUCKET_NAME`.
 
-### `backend/.env`
-
-| Variable                  | Description                  |
-| ------------------------- | ---------------------------- |
-| `AWS_ACCESS_KEY_ID`       | AWS access key               |
-| `AWS_SECRET_ACCESS_KEY`   | AWS secret key               |
-| `AWS_REGION`              | AWS region (e.g. `us-east-1`)|
-| `DYNAMODB_TABLE_PRODUCTS` | Products table name          |
-| `DYNAMODB_TABLE_RETURNS`  | Returns table name           |
-| `DYNAMODB_TABLE_USERS`    | Users table name             |
-| `S3_BUCKET_NAME`          | S3 bucket for item images    |
-
-> `.env` and `.env.local` are git-ignored. The committed values are placeholders — replace them with real credentials locally.
+> `.env` / `.env.local` are git-ignored. Without valid keys every route still responds via fallbacks (canned data) — fine to demo the UI, but not "live AI."
 
 ## API Endpoints
 
 All routes are mounted under `/api`:
 
-| Method | Endpoint              | Purpose                                  |
-| ------ | --------------------- | ---------------------------------------- |
-| GET    | `/`                   | Health check                             |
-| POST   | `/api/prevent/score`  | Predictive return prevention (keep rate) |
-| POST   | `/api/grade`          | Smart quality grading                    |
-| POST   | `/api/redirect`       | Disposition routing recommendations      |
-| POST   | `/api/credits/issue`  | Issue green credits                      |
+| Method | Endpoint              | Purpose                                          | Model |
+| ------ | --------------------- | ------------------------------------------------ | ----- |
+| GET    | `/`                   | Health check                                     | — |
+| GET/POST | `/api/prevent/score` | Predictive return prevention (keep rate)        | Nova Lite |
+| POST   | `/api/grade`          | Smart quality grading + condition score + issues | Nova Lite (multimodal) |
+| POST   | `/api/redirect`       | 5-way disposition decision engine                | Nova Pro |
+| POST   | `/api/next-owner`     | Next-best-owner buyer-segment matching           | Nova Pro |
+| POST   | `/api/certificate`    | ReLife trust certificate                         | Nova Lite |
+| POST   | `/api/credits/issue`  | Issue green credits (+ CO₂ saved)                | — |
+| POST   | `/api/tradein`        | Smart trade-in valuation + upgrade               | Nova Lite (multimodal) |
 
 ## Live Links
 
-| Environment | URL                                      |
-| ----------- | ---------------------------------------- |
-| Frontend    | https://reloop.example.com _(placeholder)_ |
-| Backend API | https://api.reloop.example.com _(placeholder)_ |
-| Swagger UI  | https://api.reloop.example.com/docs _(placeholder)_ |
+| Environment | URL |
+| ----------- | --- |
+| Frontend    | https://relife.example.com _(placeholder)_ |
+| Backend API | https://api.relife.example.com _(placeholder)_ |
+| Swagger UI  | https://api.relife.example.com/docs _(placeholder)_ |

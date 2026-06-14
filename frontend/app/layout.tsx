@@ -3,9 +3,9 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "ReLoop — Every return finds its next owner",
+  title: "Amazon ReLife AI — Every Product Deserves a Second Life",
   description:
-    "AI-powered returns intelligence: keep-rate prediction, smart grading, circular routing, and Green Credits.",
+    "AI second-life commerce: smart quality grading, a 5-way decision engine, next-best-owner matching, trust certification, and green credits.",
 };
 
 export default function RootLayout({
