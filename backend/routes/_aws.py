@@ -22,6 +22,11 @@ TABLE_PRODUCTS = os.getenv("DYNAMODB_TABLE_PRODUCTS", "products")
 TABLE_RETURNS = os.getenv("DYNAMODB_TABLE_RETURNS", "returns")
 TABLE_USERS = os.getenv("DYNAMODB_TABLE_USERS", "users")
 
+# Deterministic decoding: temperature 0 so the same photo always grades the
+# same way (no C-vs-R flip-flopping between runs). maxTokens generous enough
+# for the JSON replies our routes ask for.
+INFERENCE_CONFIG = {"temperature": 0, "topP": 1, "maxTokens": 800}
+
 _bedrock = None
 _dynamodb = None
 
@@ -51,6 +56,7 @@ def converse_text(model_id: str, prompt: str) -> str:
     response = get_bedrock().converse(
         modelId=model_id,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig=INFERENCE_CONFIG,
     )
     return response["output"]["message"]["content"][0]["text"]
 
@@ -81,6 +87,7 @@ def converse_image(
                 ],
             }
         ],
+        inferenceConfig=INFERENCE_CONFIG,
     )
     return response["output"]["message"]["content"][0]["text"]
 

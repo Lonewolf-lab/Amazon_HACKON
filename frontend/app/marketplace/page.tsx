@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronRight,
   ShieldCheck,
@@ -12,7 +12,9 @@ import {
   BookOpen,
   Dumbbell,
   Package,
+  Sparkles,
 } from "lucide-react";
+import { getPublishedListings } from "@/lib/published";
 
 /* Listings simulated from the seeded product catalog (real product names),
    priced as a % of original by grade. In production this is a returns×products
@@ -65,9 +67,43 @@ const GRADE_TONE: Record<Grade, string> = {
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
+// Unified card model — static catalog + user-published returns render the same.
+type Display = Listing & {
+  price: number;
+  score: number;
+  disposition?: string;
+  justListed?: boolean;
+};
+
 export default function MarketplacePage() {
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
-  const listings = cat === "All" ? LISTINGS : LISTINGS.filter((l) => l.category === cat);
+
+  // Items the user just sent through the ReLife Journey (from localStorage).
+  const [published, setPublished] = useState<Display[]>([]);
+  useEffect(() => {
+    setPublished(
+      getPublishedListings().map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        grade: p.grade,
+        original: p.original,
+        price: p.price,
+        score: p.condition_score,
+        disposition: p.disposition,
+        justListed: true,
+      }))
+    );
+  }, []);
+
+  const fromStatic: Display[] = LISTINGS.map((l) => ({
+    ...l,
+    price: Math.round((l.original * RESALE_PCT[l.grade]) / 100),
+    score: SCORE[l.grade],
+  }));
+
+  const all: Display[] = [...published, ...fromStatic];
+  const listings = cat === "All" ? all : all.filter((l) => l.category === cat);
 
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-5">
@@ -108,13 +144,16 @@ export default function MarketplacePage() {
       {/* Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {listings.map((l) => {
-          const price = Math.round((l.original * RESALE_PCT[l.grade]) / 100);
-          const discount = Math.round((1 - price / l.original) * 100);
+          const discount = Math.round((1 - l.price / l.original) * 100);
           const Icon = CAT_ICON[l.category] ?? Package;
           return (
             <div
               key={l.id}
-              className="flex flex-col overflow-hidden rounded-md border border-[#D5D9D9] bg-white transition-shadow hover:shadow-md"
+              className={`flex flex-col overflow-hidden rounded-md border bg-white transition-shadow hover:shadow-md ${
+                l.justListed
+                  ? "border-[#FF9900] ring-1 ring-[#FF9900]"
+                  : "border-[#D5D9D9]"
+              }`}
             >
               {/* Image area */}
               <div className="relative flex h-32 items-center justify-center bg-[#F7F8F8]">
@@ -127,21 +166,31 @@ export default function MarketplacePage() {
                 <span className="absolute right-2 top-2 flex items-center gap-0.5 rounded-sm bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-[#067D62]">
                   <ShieldCheck className="h-3 w-3" /> Certified
                 </span>
+                {l.justListed && (
+                  <span className="absolute bottom-2 left-2 flex items-center gap-0.5 rounded-sm bg-[#FF9900] px-1.5 py-0.5 text-[10px] font-bold text-[#131921]">
+                    <Sparkles className="h-3 w-3" /> Just listed
+                  </span>
+                )}
               </div>
 
               {/* Body */}
               <div className="flex flex-1 flex-col p-3">
+                {l.disposition && (
+                  <span className="mb-1 w-fit rounded-sm bg-[#EEF6FB] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#007185]">
+                    {l.disposition}
+                  </span>
+                )}
                 <p className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-[#0F1111]">
                   {l.name}
                 </p>
                 <div className="mt-1 flex items-center gap-1 text-xs text-[#565959]">
                   <Star className="h-3 w-3 fill-[#FF9900] text-[#FF9900]" />
-                  Condition {SCORE[l.grade]}/100
+                  Condition {l.score}/100
                 </div>
 
                 <div className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-lg font-bold text-[#0F1111]">
-                    {inr(price)}
+                    {inr(l.price)}
                   </span>
                   <span className="text-xs text-[#CC0C39]">-{discount}%</span>
                 </div>

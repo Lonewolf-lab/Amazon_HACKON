@@ -102,6 +102,22 @@ export interface CreditsPayload {
   user_id?: string;
   amount: number;
   return_id?: string;
+  reason?: string;
+}
+
+export interface CreditTxn {
+  txn_id: string;
+  type: "credit" | "debit" | string;
+  amount: number;
+  reason: string;
+  balance_after: number;
+  created_at: string;
+  ref?: string;
+}
+
+export interface CreditLedger {
+  balance: number;
+  transactions: CreditTxn[];
 }
 
 /* ------------------------------- API calls -------------------------------- */
@@ -164,6 +180,31 @@ export async function issueCredits(
     user_id: payload.user_id ?? DEMO_USER_ID,
     amount: payload.amount,
     return_id: payload.return_id ?? DEMO_RETURN_ID,
+    reason: payload.reason,
+  });
+  return data;
+}
+
+/** Green credits — full balance + transaction ledger for a user. */
+export async function getCreditLedger(
+  userId: string = DEMO_USER_ID
+): Promise<CreditLedger> {
+  const { data } = await api.get<CreditLedger>("/api/credits/ledger", {
+    params: { user_id: userId },
+  });
+  return data;
+}
+
+/** Green credits — redeem (debit) credits for a reward. */
+export async function redeemCredits(payload: {
+  user_id?: string;
+  amount: number;
+  reward: string;
+}): Promise<{ ok: boolean; new_balance: number; message: string }> {
+  const { data } = await api.post("/api/credits/redeem", {
+    user_id: payload.user_id ?? DEMO_USER_ID,
+    amount: payload.amount,
+    reward: payload.reward,
   });
   return data;
 }
@@ -206,6 +247,77 @@ export async function generateCertificate(payload: {
     confidence: payload.confidence,
     chosen_path: payload.chosen_path,
     buyer_segment: payload.buyer_segment,
+  });
+  return data;
+}
+
+/* ------------------------- ReLife Journey records ------------------------- */
+
+export interface JourneyRecord {
+  return_id: string;
+  asin: string;
+  product_name: string;
+  reason: string;
+  grade: string;
+  condition_score: number;
+  confidence: number;
+  detected_issues: string[];
+  chosen_path: string;
+  disposition: string;
+  recovery_value: number;
+  green_credits: number;
+  status: string; // "in_refurbishment" | "completed" | "refurbished_listed"
+  created_at: string;
+  image_format?: string;
+  image_base64?: string; // only present on the detail endpoint
+}
+
+/** Persist a finished ReLife Journey (powers the admin dashboard). */
+export async function completeJourney(payload: {
+  return_id: string;
+  asin?: string;
+  product_name: string;
+  reason: string;
+  grade: string;
+  condition_score: number;
+  confidence: number;
+  detected_issues: string[];
+  chosen_path: string;
+  disposition: string;
+  recovery_value: number;
+  green_credits: number;
+  image_base64?: string;
+  image_format?: string;
+}): Promise<JourneyRecord> {
+  const { data } = await api.post<JourneyRecord>("/api/journey/complete", {
+    ...payload,
+    asin: payload.asin ?? DEMO_ASIN,
+  });
+  return data;
+}
+
+/** All AI decisions, newest first (no image payload). */
+export async function getJourneyList(): Promise<JourneyRecord[]> {
+  const { data } = await api.get<JourneyRecord[]>("/api/journey/list");
+  return data;
+}
+
+/** Full record for one decision, including the uploaded photo. */
+export async function getJourneyDetail(
+  returnId: string
+): Promise<JourneyRecord> {
+  const { data } = await api.get<JourneyRecord>(
+    `/api/journey/${encodeURIComponent(returnId)}`
+  );
+  return data;
+}
+
+/** Warehouse marks a refurbishment complete → item becomes listed. */
+export async function completeRefurbishment(
+  returnId: string
+): Promise<{ ok: boolean; return_id: string; status?: string }> {
+  const { data } = await api.post("/api/journey/refurbish-complete", {
+    return_id: returnId,
   });
   return data;
 }

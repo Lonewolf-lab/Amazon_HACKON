@@ -27,15 +27,19 @@ import {
   getNextOwners,
   generateCertificate,
   issueCredits,
+  completeJourney,
   type GradeResult,
   type RedirectPath,
   type BuyerSegment,
   type Certificate,
 } from "@/lib/api";
+import Link from "next/link";
+import { savePublishedListing, dispositionFor } from "@/lib/published";
 
 const PRICE = 1499;
 const ASIN = "ASIN001";
 const RETURN_ID = "RET001";
+const PRODUCT_NAME = "boAt Rockerz 450 Bluetooth Headphones";
 const FALLBACK_URL =
   "https://hackon-images.s3.amazonaws.com/returns/RET001_1.jpg";
 
@@ -64,18 +68,55 @@ export default function PortalPage() {
 
   const recommended = paths?.find((p) => p.recommended) ?? paths?.[0] ?? null;
   const topSegment = segments?.[0] ?? null;
+  const chosenObj =
+    (chosenPath ? paths?.find((p) => p.path === chosenPath) : null) ??
+    recommended;
+  const creditsIssued = chosenObj?.green_credits_to_issue ?? 0;
 
   async function handleConfirm(path: string) {
     setChosenPath(path);
     const chosen = paths?.find((p) => p.path === path);
+    const credits = chosen?.green_credits_to_issue ?? 50;
+    // Unique id per completed journey → every decision is its own DB record.
+    const rid = `RET-${Date.now().toString(36).toUpperCase()}`;
+
     try {
       await issueCredits({
-        amount: chosen?.green_credits_to_issue ?? 50,
-        return_id: RETURN_ID,
+        amount: credits,
+        return_id: rid,
+        reason: `ReLife return — ${PATH_LABELS[path] ?? path} (${PRODUCT_NAME})`,
       });
     } catch {
       /* credits are best-effort; never block the journey */
     }
+
+    // Persist the full AI decision to DynamoDB — this is what the Admin
+    // dashboard (decisions table + refurbishment queue) reads back.
+    try {
+      let thumb: string | undefined;
+      if (gradeImage?.base64) {
+        thumb = await downscaleBase64(gradeImage.base64, gradeImage.format);
+      }
+      await completeJourney({
+        return_id: rid,
+        asin: ASIN,
+        product_name: PRODUCT_NAME,
+        reason,
+        grade: grade?.grade ?? "B",
+        condition_score: grade?.condition_score ?? 0,
+        confidence: grade?.confidence ?? 0,
+        detected_issues: grade?.detected_issues ?? [],
+        chosen_path: path,
+        disposition: PATH_LABELS[path] ?? path,
+        recovery_value: chosen?.estimated_recovery_value ?? 0,
+        green_credits: credits,
+        image_base64: thumb,
+        image_format: "jpeg",
+      });
+    } catch {
+      /* record is best-effort; never block the journey */
+    }
+
     setStep(4);
   }
 
@@ -136,6 +177,7 @@ export default function PortalPage() {
               segments={segments}
               onSegments={setSegments}
               onContinue={() => setStep(5)}
+              creditsIssued={creditsIssued}
             />
           )}
           {step === 5 && grade && (
@@ -584,6 +626,7 @@ function StepDecision({
   onConfirm: (path: string) => void;
 }) {
   const started = useRef(false);
+  const [showOverride, setShowOverride] = useState(false);
   useEffect(() => {
     if (paths || started.current) return;
     started.current = true;
@@ -698,19 +741,55 @@ function StepDecision({
           >
             Confirm — {PATH_LABELS[recommended.path] ?? recommended.path}
           </button>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {paths
-              .filter((p) => !p.recommended)
-              .map((p) => (
+
+          {/* Human-in-the-loop override — only paths the item QUALIFIES for at
+              its grade (hard rule, not the model's confidence). A defective
+              Grade C/R item can never be overridden into resell or exchange. */}
+          {(() => {
+            const eligible =
+              ELIGIBLE_PATHS[grade.grade?.toUpperCase()] ?? [];
+            const alternatives = paths.filter(
+              (p) => !p.recommended && eligible.includes(p.path)
+            );
+            if (alternatives.length === 0) return null;
+            return (
+              <div>
                 <button
-                  key={p.path}
-                  onClick={() => onConfirm(p.path)}
-                  className="rounded-full border border-[#888C8C] bg-white py-2 text-xs font-medium text-[#0F1111] hover:bg-[#F7FAFA]"
+                  onClick={() => setShowOverride((v) => !v)}
+                  className="flex items-center gap-1 px-1 py-1 text-xs font-medium text-[#007185] hover:text-[#C7511F] hover:underline"
                 >
-                  {PATH_LABELS[p.path] ?? p.path}
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      showOverride ? "rotate-90" : ""
+                    }`}
+                  />
+                  Override the AI&apos;s decision
                 </button>
-              ))}
-          </div>
+                {showOverride && (
+                  <div className="mt-1 space-y-2 rounded-sm border border-[#D5D9D9] bg-[#FAFAFA] p-3">
+                    <p className="text-[11px] text-[#565959]">
+                      Only paths this item qualifies for at Grade {grade.grade}{" "}
+                      are shown.
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {alternatives.map((p) => (
+                        <button
+                          key={p.path}
+                          onClick={() => onConfirm(p.path)}
+                          className="flex items-center justify-between rounded-sm border border-[#888C8C] bg-white px-3 py-2 text-xs font-medium text-[#0F1111] hover:bg-[#F7FAFA]"
+                        >
+                          <span>{PATH_LABELS[p.path] ?? p.path}</span>
+                          <span className="text-[#565959]">
+                            {p.confidence}%
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -724,11 +803,13 @@ function StepNextOwner({
   segments,
   onSegments,
   onContinue,
+  creditsIssued,
 }: {
   grade: GradeResult;
   segments: BuyerSegment[] | null;
   onSegments: (s: BuyerSegment[]) => void;
   onContinue: () => void;
+  creditsIssued: number;
 }) {
   const started = useRef(false);
   useEffect(() => {
@@ -748,6 +829,15 @@ function StepNextOwner({
     })();
   }, [segments, grade, onSegments]);
 
+  // No user action here — once the match is shown, ReLife auto-proceeds to
+  // certify the item for its next owner. This is a transparency reveal for the
+  // returner, whose own task already ended at "Confirm".
+  useEffect(() => {
+    if (!segments) return;
+    const t = setTimeout(onContinue, 2600);
+    return () => clearTimeout(t);
+  }, [segments, onContinue]);
+
   if (!segments) {
     return (
       <Panel title="Next Best Owner">
@@ -758,9 +848,17 @@ function StepNextOwner({
 
   return (
     <div className="space-y-4">
+      {/* Returner is done — their reward is locked in. The rest is the system
+          closing the loop for the next owner. */}
+      <div className="flex items-center gap-2 rounded-sm border border-[#067D62]/30 bg-[#F0FAF7] px-4 py-2.5 text-sm font-bold text-[#067D62]">
+        <CheckCircle2 className="h-5 w-5" />
+        You earned +{creditsIssued} Green Credits — your part is done. Here&apos;s
+        the second life your return enables:
+      </div>
+
       <div className="flex items-center gap-2 rounded-sm border border-[#007185]/30 bg-[#F1F8FB] px-4 py-2.5 text-sm font-bold text-[#0F1111]">
         <Users className="h-5 w-5 text-[#007185]" />
-        AI matched 3 buyer segments for this item
+        ReLife AI matched the 3 buyer segments who want this item most
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -807,12 +905,10 @@ function StepNextOwner({
         ))}
       </div>
 
-      <button
-        onClick={onContinue}
-        className="w-full rounded-full border border-[#FF8F00] bg-[#FFA41C] py-2.5 text-sm font-bold text-[#0F1111] hover:bg-[#FA8900]"
-      >
-        Issue ReLife Certificate →
-      </button>
+      <div className="flex items-center justify-center gap-2 py-1 text-sm text-[#565959]">
+        <Loader2 className="h-4 w-4 animate-spin text-[#FF9900]" />
+        Issuing the ReLife trust certificate for the next owner…
+      </div>
     </div>
   );
 }
@@ -853,6 +949,32 @@ function StepCertificate({
       }
     })();
   }, [certificate, grade, chosenPath, topSegment, onCert]);
+
+  // List in the Marketplace immediately ONLY for resell (sell-as-is, "Pre-owned").
+  // Refurbish items are NOT listed here — they go to the warehouse queue first
+  // and only list as "Amazon Renewed" once a technician marks them repaired
+  // (done from Admin → Refurbishment Queue). Donate/recycle are never listed.
+  const published = useRef(false);
+  useEffect(() => {
+    if (!certificate || published.current) return;
+    published.current = true;
+    if (chosenPath !== "resell") return;
+    const g = (grade.grade || "B").toUpperCase();
+    if (!["A", "B", "C"].includes(g)) return;
+    const price = Math.max(1, Math.round((grade.resale_pct / 100) * PRICE));
+    savePublishedListing({
+      id: certificate.certificate_id || `RL-${RETURN_ID}`,
+      name: certificate.product_name || PRODUCT_NAME,
+      category: "Electronics",
+      grade: g as "A" | "B" | "C",
+      original: PRICE,
+      price,
+      condition_score: grade.condition_score,
+      disposition: dispositionFor("resell"),
+      certificate_id: certificate.certificate_id || `RL-${RETURN_ID}`,
+      publishedAt: Date.now(),
+    });
+  }, [certificate, chosenPath, grade]);
 
   if (!certificate) {
     return (
@@ -912,6 +1034,73 @@ function StepCertificate({
           </div>
         </div>
       </div>
+
+      {chosenPath === "resell" && (
+        <div className="rounded-md border border-[#FF9900]/40 bg-[#FFF7E6] p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-[#0F1111]">
+            <Sparkles className="h-4 w-4 text-[#FF9900]" />
+            Your return is now live in the ReLife Marketplace
+          </p>
+          <p className="mt-0.5 text-xs text-[#565959]">
+            Listed as “Pre-owned” • Amazon ReLife Certified • ready for its next
+            owner.
+          </p>
+          <Link
+            href="/marketplace"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#FF8F00] bg-[#FFA41C] py-2.5 text-sm font-bold text-[#0F1111] hover:bg-[#FA8900]"
+          >
+            View it in the Marketplace →
+          </Link>
+        </div>
+      )}
+
+      {chosenPath === "refurbish" && (
+        <div className="rounded-md border border-[#007185]/40 bg-[#F1F8FB] p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-[#0F1111]">
+            <Wrench className="h-4 w-4 text-[#007185]" />
+            Sent to the warehouse for refurbishment
+          </p>
+          <p className="mt-0.5 text-xs text-[#565959]">
+            A ReLife Work Order was issued — the warehouse repairs it (no
+            re-inspection needed) and it lists as “Amazon Renewed” once marked
+            complete.
+          </p>
+          {grade.detected_issues?.length > 0 && (
+            <div className="mt-2 rounded-sm border border-[#D5D9D9] bg-white p-2.5">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[#565959]">
+                Repair checklist (from AI inspection)
+              </p>
+              <ul className="space-y-0.5">
+                {grade.detected_issues.map((issue, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-1.5 text-xs text-[#0F1111]"
+                  >
+                    <span className="h-3 w-3 shrink-0 rounded-[3px] border border-[#888C8C]" />
+                    {issue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Link
+            href="/admin"
+            className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[#007185] hover:text-[#C7511F] hover:underline"
+          >
+            Track it in Admin → Refurbishment Queue →
+          </Link>
+        </div>
+      )}
+
+      {(chosenPath === "donate" || chosenPath === "recycle") && (
+        <div className="rounded-md border border-[#067D62]/30 bg-[#F0FAF7] p-4 text-sm text-[#0F1111]">
+          This item is routed to{" "}
+          <span className="font-bold">
+            {chosenPath === "donate" ? "an NGO partner" : "a certified recycler"}
+          </span>{" "}
+          — it isn’t resold, so it won’t appear in the Marketplace.
+        </div>
+      )}
 
       <button
         onClick={() => window.print()}
@@ -1071,12 +1260,57 @@ function fileFormat(file: File): string {
   return "jpeg";
 }
 
+/**
+ * Shrink a base64 image to a small JPEG for storage (so the admin can show the
+ * returned product photo without blowing the DynamoDB 400KB item limit).
+ * Always returns JPEG base64; falls back to the original on any failure.
+ */
+function downscaleBase64(
+  base64: string,
+  format: string,
+  maxDim = 720,
+  quality = 0.7
+): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const img = new window.Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(base64);
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        resolve(dataUrl.split(",")[1] ?? base64);
+      };
+      img.onerror = () => resolve(base64);
+      img.src = `data:image/${format};base64,${base64}`;
+    } catch {
+      resolve(base64);
+    }
+  });
+}
+
 const PATH_LABELS: Record<string, string> = {
   resell: "Peer-to-Peer Resale",
   refurbish: "Amazon Renewed",
   donate: "Donate to NGO",
   recycle: "Recycle",
   exchange: "Exchange",
+};
+
+// Hard business rule: which paths an item actually QUALIFIES for at each grade.
+// Resell (P2P) / Renewed / Exchange require Grade A or B — a damaged C/R item
+// can never be routed there, no matter what confidence the model assigns.
+const ELIGIBLE_PATHS: Record<string, string[]> = {
+  A: ["resell", "refurbish", "exchange", "donate"],
+  B: ["resell", "refurbish", "exchange", "donate"],
+  C: ["refurbish", "donate", "recycle"],
+  R: ["donate", "recycle"],
 };
 
 function PathIcon({

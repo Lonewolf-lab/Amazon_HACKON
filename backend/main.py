@@ -15,6 +15,7 @@ from routes import (
     next_owner,
     certificate,
     tradein,
+    journey,
 )
 
 load_dotenv()
@@ -38,6 +39,7 @@ app.include_router(credits.router, prefix="/api")
 app.include_router(next_owner.router, prefix="/api")
 app.include_router(certificate.router, prefix="/api")
 app.include_router(tradein.router, prefix="/api")
+app.include_router(journey.router, prefix="/api")
 
 
 @app.get("/")

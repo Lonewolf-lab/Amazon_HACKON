@@ -18,12 +18,20 @@ router = APIRouter(prefix="/redirect", tags=["redirect"])
 NOVA_PRO = "amazon.nova-pro-v1:0"
 
 ROUTING_CONTEXT = """
-NGO Partners: Goonj (clothing, household), CRY (children items), HelpAge India (appliances)
-Amazon Renewed criteria: Grade A or B electronics/appliances only
-P2P Resale criteria: Grade A or B any category, price > ₹500
-Refurbish partners: Cashify (electronics), QuikrRefurb (appliances)
-Recycle partners: E-Parisaraa (electronics), Attero (batteries)
-Exchange eligibility: Wrong size/color returns, Grade A or B only
+Partner network:
+- Amazon Renewed: certified resale of Grade A/B electronics & appliances (highest recovery).
+- P2P Resale: Grade A/B, any category, price > ₹500.
+- Refurbish: Cashify (electronics), QuikrRefurb (appliances) — repair cosmetic/minor damage, then resell. Ideal for Grade C items that still function.
+- Donate (NGO): Goonj (clothing/household), CRY (children's items), HelpAge India (appliances) — for usable items with low resale value.
+- Recycle: E-Parisaraa (electronics), Attero (batteries) — LAST RESORT, only for non-functional/unsafe (Grade R) items.
+- Exchange: only for wrong size/color returns, Grade A/B.
+
+Decision policy — recommend the HIGHEST-value path the item qualifies for:
+- Grade A -> resell (P2P or Amazon Renewed). Highest recovery.
+- Grade B -> resell, or refurbish then resell.
+- Grade C -> refurbish (preferred: visible/cosmetic damage but still usable). If not economically refurbishable, donate. Recycle only if truly unusable.
+- Grade R -> donate if an NGO can use it, otherwise recycle (non-functional/unsafe).
+Recycle is the LAST resort. NEVER recommend recycle as the top path for a functional Grade A, B, or C item — it destroys recoverable value.
 """
 
 
@@ -77,7 +85,8 @@ Returned item:
 Available routing context:
 {ROUTING_CONTEXT}
 
-Rank ALL five paths. Return a JSON array only. No preamble. No markdown.
+Apply the decision policy above to choose the single recommended path for this
+grade, then rank ALL five paths. Return a JSON array only. No preamble. No markdown.
 Each object must have keys:
 - path: 'resell' | 'refurbish' | 'donate' | 'recycle' | 'exchange'
 - recommended: boolean (exactly one must be true)
