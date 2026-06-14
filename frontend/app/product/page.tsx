@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { getPreventScore, type PreventScore } from "@/lib/api";
 import { usePersona } from "@/lib/persona";
+import { productImage } from "@/lib/catalog";
 
 // A few sample products a judge can flip between. Names/prices come from the API.
 const SAMPLE_PRODUCTS = [
@@ -69,12 +70,14 @@ function ProductImage({
 }) {
   const [err, setErr] = useState(false);
   const Icon = typeIcon(name, category);
+  // Shared resolver: curated asin map → name match (full catalog) → {asin}.jpg
+  const src = productImage(asin, undefined, name);
   return (
-    <div className="flex aspect-square w-full max-w-[440px] items-center justify-center overflow-hidden rounded-sm border border-[#D5D9D9] bg-white">
-      {!err ? (
+    <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-sm border border-[#D5D9D9] bg-white">
+      {src && !err ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={`/products/${asin}.jpg`}
+          src={src}
           alt={name}
           onError={() => setErr(true)}
           className="h-full w-full object-contain p-4"
@@ -87,6 +90,72 @@ function ProductImage({
 }
 
 const inr = (n: number) => n.toLocaleString("en-IN");
+
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** Pull spec-ish tokens out of a product name (RTX 4060, 16GB, 165Hz, Core i7…). */
+function specTokens(name: string): string[] {
+  const patterns = [
+    /\b(?:RTX|GTX|RX)\s?\d{3,4}\b/gi,
+    /\bCore\s?i[3579]\b/gi,
+    /\b\d{2,4}\s?GB\b/gi,
+    /\b\d{1,2}\s?TB\b/gi,
+    /\b\d{2,3}\s?Hz\b/gi,
+    /\b\d{2,3}[- ]?inch\b/gi,
+    /\bWiFi\s?6\b/gi,
+    /\b\d{3,4}\s?W\b/gi,
+    /\b5G\b/g,
+  ];
+  const found: string[] = [];
+  for (const p of patterns) {
+    const m = name.match(p);
+    if (m) m.forEach((x) => found.push(x.replace(/\s+/g, " ").trim()));
+  }
+  return Array.from(new Set(found));
+}
+
+const CATEGORY_BLURB: Record<string, string> = {
+  electronics:
+    "Genuine electronics with full manufacturer warranty and Amazon quality checks.",
+  clothing:
+    "Authentic apparel — true-to-size fit with easy returns and exchanges.",
+  appliances:
+    "Energy-efficient home appliance backed by manufacturer warranty.",
+  books: "Original print edition, sourced and fulfilled by Amazon.",
+  sports: "Durable sports & fitness gear built for everyday use.",
+};
+
+/** "About this item" bullets synthesised from the product name + category. */
+function aboutBullets(name: string, category: string): string[] {
+  const tokens = specTokens(name);
+  const bullets: string[] = [];
+  if (tokens.length) bullets.push(`Key specs: ${tokens.join(" · ")}.`);
+  bullets.push(
+    CATEGORY_BLURB[category] ??
+      "Genuine product fulfilled by Amazon with easy returns."
+  );
+  bullets.push(
+    "Eligible for FREE fast delivery and hassle-free 7-day replacement."
+  );
+  bullets.push(
+    "ReLife eligible — return it later to earn Green Credits and keep it out of landfill."
+  );
+  return bullets;
+}
+
+/** Specifications table rows from the product name + category. */
+function specRows(name: string, category: string): { label: string; value: string }[] {
+  const tokens = specTokens(name);
+  const rows = [
+    { label: "Brand", value: name.split(" ")[0] },
+    { label: "Category", value: cap(category) },
+  ];
+  if (tokens.length) rows.push({ label: "Highlights", value: tokens.join(", ") });
+  rows.push({ label: "Seller", value: "Amazon ReLife" });
+  rows.push({ label: "Warranty", value: "1 year manufacturer warranty" });
+  rows.push({ label: "Delivery", value: "FREE — as soon as tomorrow" });
+  return rows;
+}
 
 export default function ProductPage() {
   const { userId, persona } = usePersona();
@@ -215,8 +284,13 @@ export default function ProductPage() {
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        {/* LEFT — title + image */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr_340px]">
+        {/* LEFT — image (sticks while you read the details) */}
+        <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <ProductImage asin={asin} name={name} category={category} />
+        </div>
+
+        {/* MIDDLE — title, rating, about & specs */}
         <div className="min-w-0">
           <h1 className="text-2xl font-medium leading-snug text-[#0F1111]">
             {name}
@@ -240,7 +314,33 @@ export default function ProductPage() {
 
           <hr className="my-3 border-[#D5D9D9]" />
 
-          <ProductImage asin={asin} name={name} category={category} />
+          {/* About this item */}
+          <h2 className="text-base font-bold text-[#0F1111]">About this item</h2>
+          <ul className="mt-2 space-y-1.5 text-sm text-[#0F1111]">
+            {aboutBullets(name, category).map((b, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#565959]" />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Specifications */}
+          <h2 className="mt-5 text-base font-bold text-[#0F1111]">
+            Product details
+          </h2>
+          <table className="mt-2 w-full text-sm">
+            <tbody>
+              {specRows(name, category).map((r) => (
+                <tr key={r.label} className="align-top">
+                  <td className="w-36 py-1 pr-3 font-semibold text-[#565959]">
+                    {r.label}
+                  </td>
+                  <td className="py-1 text-[#0F1111]">{r.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* RIGHT — buy box */}
