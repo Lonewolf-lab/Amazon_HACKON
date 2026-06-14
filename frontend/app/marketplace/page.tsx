@@ -130,13 +130,16 @@ export default function MarketplacePage() {
     };
   }, []);
 
+  // Offline fallback only — used if the backend returns nothing.
   const fromStatic: Display[] = LISTINGS.map((l) => ({
     ...l,
     price: Math.round((l.original * RESALE_PCT[l.grade]) / 100),
     score: SCORE[l.grade],
   }));
 
-  const all: Display[] = [...published, ...fromStatic];
+  // Backend (DynamoDB: 50-product catalog + live journey listings) is the
+  // source of truth; fall back to the static list only if it's empty.
+  const all: Display[] = published.length > 0 ? published : fromStatic;
   const listings = cat === "All" ? all : all.filter((l) => l.category === cat);
 
   return (

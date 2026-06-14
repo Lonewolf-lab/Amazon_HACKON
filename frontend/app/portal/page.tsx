@@ -72,6 +72,9 @@ export default function PortalPage() {
     (chosenPath ? paths?.find((p) => p.path === chosenPath) : null) ??
     recommended;
   const creditsIssued = chosenObj?.green_credits_to_issue ?? 0;
+  // Grade R = non-functional/unsafe → no buyer matching or resale certificate;
+  // it ends on a "responsibly recycled/discarded" outcome instead.
+  const isRecycle = (grade?.grade ?? "").toUpperCase() === "R";
 
   async function handleConfirm(path: string) {
     setChosenPath(path);
@@ -139,7 +142,7 @@ export default function PortalPage() {
         its next best owner, and certifies it for resale.
       </p>
 
-      <StepIndicator step={step} />
+      <StepIndicator step={step} isRecycle={isRecycle} />
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_340px]">
         {/* LEFT — workflow */}
@@ -171,7 +174,14 @@ export default function PortalPage() {
               onConfirm={handleConfirm}
             />
           )}
-          {step === 4 && grade && (
+          {step === 4 && grade && isRecycle && (
+            <StepRecycled
+              grade={grade}
+              chosenPath={chosenPath}
+              creditsIssued={creditsIssued}
+            />
+          )}
+          {step === 4 && grade && !isRecycle && (
             <StepNextOwner
               grade={grade}
               segments={segments}
@@ -180,7 +190,7 @@ export default function PortalPage() {
               creditsIssued={creditsIssued}
             />
           )}
-          {step === 5 && grade && (
+          {step === 5 && grade && !isRecycle && (
             <StepCertificate
               grade={grade}
               chosenPath={chosenPath}
@@ -236,13 +246,17 @@ export default function PortalPage() {
               />
               <Row
                 label="Next Owner"
-                value={topSegment ? topSegment.segment : "—"}
+                value={
+                  isRecycle ? "Not resold" : topSegment ? topSegment.segment : "—"
+                }
               />
               <hr className="border-[#D5D9D9]" />
               <Row
                 label="Status"
                 value={
-                  certificate
+                  isRecycle && chosenPath
+                    ? "Responsibly recycled ♻"
+                    : certificate
                     ? "Certified ✓"
                     : chosenPath
                     ? "Matching owner…"
@@ -264,14 +278,21 @@ export default function PortalPage() {
 
 /* ----------------------------- Step indicator ----------------------------- */
 
-function StepIndicator({ step }: { step: Step }) {
-  const items = [
-    { n: 1, label: "Upload" },
-    { n: 2, label: "AI Inspection" },
-    { n: 3, label: "Decision" },
-    { n: 4, label: "Next Owner" },
-    { n: 5, label: "Certificate" },
-  ];
+function StepIndicator({ step, isRecycle }: { step: Step; isRecycle: boolean }) {
+  const items = isRecycle
+    ? [
+        { n: 1, label: "Upload" },
+        { n: 2, label: "AI Inspection" },
+        { n: 3, label: "Decision" },
+        { n: 4, label: "Outcome" },
+      ]
+    : [
+        { n: 1, label: "Upload" },
+        { n: 2, label: "AI Inspection" },
+        { n: 3, label: "Decision" },
+        { n: 4, label: "Next Owner" },
+        { n: 5, label: "Certificate" },
+      ];
   return (
     <div className="flex items-center">
       {items.map((it, i) => {
@@ -908,6 +929,76 @@ function StepNextOwner({
       <div className="flex items-center justify-center gap-2 py-1 text-sm text-[#565959]">
         <Loader2 className="h-4 w-4 animate-spin text-[#FF9900]" />
         Issuing the ReLife trust certificate for the next owner…
+      </div>
+    </div>
+  );
+}
+
+/* ------------------- Step 4 (Grade R): recycled outcome ------------------- */
+
+function StepRecycled({
+  grade,
+  chosenPath,
+  creditsIssued,
+}: {
+  grade: GradeResult;
+  chosenPath: string | null;
+  creditsIssued: number;
+}) {
+  const isDonate = chosenPath === "donate";
+  const co2 = (creditsIssued * 0.016).toFixed(2);
+  const Icon = isDonate ? Heart : Recycle;
+  const title = isDonate ? "Donated — Not Resold" : "Responsibly Recycled";
+  const partner = isDonate
+    ? "an NGO partner (Goonj / CRY / HelpAge India)"
+    : "a certified e-waste recycler (E-Parisaraa / Attero)";
+  const line = isDonate
+    ? "This item can’t be resold, so ReLife AI routed it to an NGO that can still put it to good use."
+    : "This item is non-functional or unsafe to resell, so ReLife AI routed it to certified recycling to recover its materials.";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 rounded-sm border border-[#067D62]/30 bg-[#F0FAF7] px-4 py-2.5 text-sm font-bold text-[#067D62]">
+        <CheckCircle2 className="h-5 w-5" />
+        You earned +{creditsIssued} Green Credits — even a broken return creates
+        value.
+      </div>
+
+      <Panel title="Outcome">
+        <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#CC0C39]/10">
+            <Icon className="h-8 w-8 text-[#CC0C39]" />
+          </div>
+          <GradeBadge grade={grade.grade} />
+          <h3 className="text-lg font-bold text-[#0F1111]">{title}</h3>
+          <p className="max-w-md text-sm text-[#565959]">{line}</p>
+          <p className="text-sm text-[#0F1111]">
+            Routed to <span className="font-medium">{partner}</span>.
+          </p>
+
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-[#D5D9D9] bg-[#FAFAFA] p-3">
+              <p className="text-xl font-bold text-[#067D62]">+{creditsIssued}</p>
+              <p className="text-[11px] text-[#565959]">Green Credits issued</p>
+            </div>
+            <div className="rounded-md border border-[#D5D9D9] bg-[#FAFAFA] p-3">
+              <p className="text-xl font-bold text-[#067D62]">{co2} kg</p>
+              <p className="text-[11px] text-[#565959]">CO₂ diverted</p>
+            </div>
+          </div>
+
+          <p className="mt-1 text-xs text-[#565959]">
+            No buyer matching or resale listing — this item won’t enter the
+            Marketplace.
+          </p>
+        </div>
+      </Panel>
+
+      <div className="rounded-md border border-[#D5D9D9] bg-white p-4 text-center text-sm text-[#565959]">
+        Logged to the ReLife operations record ·{" "}
+        <span className="font-medium text-[#007185]">
+          Verified by Amazon ReLife AI
+        </span>
       </div>
     </div>
   );
