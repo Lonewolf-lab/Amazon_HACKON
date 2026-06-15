@@ -54,35 +54,32 @@ Most solutions stop at *Upload → Detect Damage*. **ReLife closes the full loop
 
 ## 🖼️ Screenshots
 
-> **📸 For me (Shashank) — capture these and drop the images in `docs/screenshots/`, then they'll render below:**
+**1. ReLife Journey — Step 1: Upload the returned item**
+![ReLife Journey Step 1 — Upload](frontend/images/step%201.png)
 
-**1. ReLife Journey — live grading**
-`![ReLife Journey grading](docs/screenshots/01-journey-grade.png)`
-> *Capture: the `/portal` step showing a real scratched photo graded **Grade C** with condition score + detected issues. This is the "live wow" — the hero shot.*
+**2. ReLife Journey — Step 2: AI Inspection & Grading (Nova Lite, real vision)**
+![ReLife Journey Step 2 — AI Inspection](frontend/images/step%202.png)
 
-**2. AI Decision Engine**
-`![AI Decision Engine](docs/screenshots/02-decision.png)`
-> *Capture: the 5-way decision step showing refurbish recommended + Green Credits to be issued.*
+**3. ReLife Journey — Step 3: AI Decision Engine (5 paths ranked, Nova Pro)**
+![ReLife Journey Step 3 — AI Decision Engine](frontend/images/step%203.png)
 
-**3. Admin — Refurbishment Queue + decision modal**
-`![Admin queue](docs/screenshots/03-admin-queue.png)`
-> *Capture: the Admin console with the queue, and the detail modal open (photo + return reason + AI-detected problems + "Mark refurbishment complete").*
+**4. Smart Buy — Personalized Predictive Return Prevention (right-sizing + ₹48,000 saved)**
+![Smart Buy right-sizing](frontend/images/smart%20buy.png)
 
-**4. Smart Buy — Personalized Return Prevention**
-`![Smart Buy right-sizing](docs/screenshots/04-smart-buy.png)`
-> *Capture: the gaming-laptop page with the "overkill" right-size card + ₹48,000 savings, with the persona switcher visible in the navbar.*
-
-**5. ReLife Marketplace**
-`![ReLife Marketplace](docs/screenshots/05-marketplace.png)`
-> *Capture: the marketplace grid with real product photos + grade/Certified badges.*
-
-**6. Green Credits ledger**
-`![Green Credits](docs/screenshots/06-credits.png)`
-> *Capture: the Impact page showing live balance + the credit/debit transaction history.*
+**5. Admin Console — Return Details modal (photo, AI-detected problems, mark refurbishment complete)**
+![Admin Return Details modal](frontend/images/admin%20modal.png)
 
 ---
 
 ## 🏗️ Architecture
+
+**System Architecture — Next.js (Vercel) → FastAPI (Render) → AWS Bedrock (Nova Lite/Pro), DynamoDB, S3**
+![System Architecture](frontend/images/architectutre%20%281%29.png)
+
+**User Workflow — the ReLife Journey decision flow**
+![User Workflow](frontend/images/user%20flow.png)
+
+**Data flow:** photo → FastAPI → **Bedrock Nova Lite** grades the image bytes → **Nova Pro** ranks the 5 disposition paths → decision + photo persist to **DynamoDB + S3** → the *same record* powers the **Admin queue, the Marketplace, and the Green Credits ledger.** Written **once**, read **everywhere.**
 
 ```
         Frontend — Next.js 14 (Vercel)
@@ -101,9 +98,6 @@ Most solutions stop at *Upload → Detect Damage*. **ReLife closes the full loop
   Nova Pro (reasoning)   users (single-table)      (photos, pre-signed URLs)
                          Region: us-east-1
 ```
-**Data flow:** photo → FastAPI → **Bedrock Nova Lite** grades the image bytes → **Nova Pro** ranks the 5 disposition paths → decision + photo persist to **DynamoDB + S3** → the *same record* powers the **Admin queue, the Marketplace, and the Green Credits ledger.** Written **once**, read **everywhere.**
-
-> **📸 For me:** export the architecture diagram from draw.io/Excalidraw and add it here as `![Architecture](docs/screenshots/00-architecture.png)` — judges weight a clean system diagram heavily.
 
 ---
 
@@ -207,12 +201,12 @@ npm run dev                             # http://localhost:3000
 
 | | URL |
 |---|---|
-| **Live App (Frontend)** | [Vercel URL] |
-| **Backend API + Swagger** | [Render URL]`/docs` |
-| **Demo Video (2–3 min)** | [YouTube/Drive URL] |
-| **GitHub** | [repo URL] |
+| **GitHub** | https://github.com/Lonewolf-lab/Amazon_HACKON |
+| **Demo Video** | https://drive.google.com/file/d/19mcMZz5YdFML85r_TtDzqHvlpsREKHGJ/view?usp=sharing |
+| **Live App — Frontend (Vercel)** | https://amazon-hackon-eight.vercel.app/ |
+| **Live API — Backend (Render)** | https://amazon-hackon-828s.onrender.com/docs |
 
-> **📸 For me:** record a crisp **2–3 minute demo video** showing the happy path (grade a real photo → decision → credits → marketplace) *and* an edge case (Grade R still earns credits). Paste the link above — judges explicitly reward a working-prototype walkthrough.
+> *Note: the backend is on Render's free tier — the first request may take ~30–50 seconds to wake the service, then responds instantly.*
 
 ---
 
